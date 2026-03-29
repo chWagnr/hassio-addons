@@ -55,10 +55,18 @@ extra_env:
 
 ## Persistent Data
 
-All Papra data (SQLite database, uploaded documents) is stored in
-`/data/papra` inside the add-on container, which maps to
-`/addon_configs/<slug>/data/papra` on the host. This directory is preserved across add-on
-restarts and updates.
+All Papra data (SQLite database, uploaded documents) is stored under `/data/papra`
+inside the add-on container. Home Assistant maps this to the add-on's dedicated data
+folder on the host, which is preserved across add-on restarts and updates.
+
+## Backup
+
+Papra data is **fully included** in every Home Assistant backup (full or partial).
+
+This add-on is configured with `backup: cold`, which means Home Assistant will
+temporarily stop the add-on before taking a snapshot and restart it afterwards.
+This ensures the SQLite database is in a consistent state and the backup is safe
+to restore from.
 
 ## Ports
 
