@@ -1,0 +1,21 @@
+configuration:
+  app_base_url:
+    name: Application base URL
+    description: >-
+      The publicly reachable base URL of this Papra instance, including the port
+      when not on standard HTTP/HTTPS ports (e.g. http://homeassistant.local:1221).
+  auth_secret:
+    name: Authentication secret
+    description: >-
+      Long, random string used to sign authentication tokens. Must be kept secret
+      and should be changed from the default value.
+  trusted_origins:
+    name: Trusted origins
+    description: >-
+      Optional comma-separated list of additional trusted cross-origin URLs.
+      Leave empty unless you need to access Papra from a different origin.
+  extra_env:
+    name: Extra environment variables
+    description: >-
+      Additional environment variables passed directly to Papra, in KEY=VALUE
+      format. Use this for advanced options not exposed as dedicated settings.

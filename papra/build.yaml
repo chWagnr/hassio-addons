@@ -1,0 +1,9 @@
+build_from:
+  amd64: ghcr.io/papra-hq/papra:latest
+  aarch64: ghcr.io/papra-hq/papra:latest
+  armv7: ghcr.io/papra-hq/papra:latest
+labels:
+  org.opencontainers.image.title: "Papra"
+  org.opencontainers.image.description: "Minimal document management platform"
+  org.opencontainers.image.source: "https://github.com/chWagnr/hassio-addons"
+  org.opencontainers.image.licenses: "MIT"
