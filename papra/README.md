@@ -10,7 +10,7 @@ Minimalistic, self-hosted document archiving platform.
 entirely on your own hardware. This add-on wraps the official Papra container image and
 wires it into the Home Assistant ecosystem, giving you:
 
-- **Persistent storage** mapped to `/data/papra`
+- **Persistent storage** mapped to `/data/papra`, included in every HA backup
 - **Easy configuration** through the Home Assistant UI
 - **Automatic startup** on Home Assistant OS boot
 
