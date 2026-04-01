@@ -1,4 +1,4 @@
-#!/usr/bin/env bashio
+#!/usr/bin/with-contenv bashio
 set -euo pipefail
 
 # ---------------------------------------------------------------------------
@@ -7,9 +7,9 @@ set -euo pipefail
 
 bashio::log.info "Starting Papra..."
 
-# Ensure persistent data directory exists
+# Ensure persistent data directory exists (db and documents sub-dirs required by Papra)
 DATA_DIR="/data/papra"
-mkdir -p "${DATA_DIR}"
+mkdir -p "${DATA_DIR}/db" "${DATA_DIR}/documents"
 
 # Symlink /app/app-data -> /data/papra so Papra persists data through HA
 if [ ! -L /app/app-data ]; then

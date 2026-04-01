@@ -1,7 +1,7 @@
 build_from:
-  amd64: ghcr.io/papra-hq/papra:26.3.0-rootless
-  aarch64: ghcr.io/papra-hq/papra:26.3.0-rootless
-  armv7: ghcr.io/papra-hq/papra:26.3.0-rootless
+  amd64: ghcr.io/papra-hq/papra:26.3.0-root
+  aarch64: ghcr.io/papra-hq/papra:26.3.0-root
+  armv7: ghcr.io/papra-hq/papra:26.3.0-root
 labels:
   org.opencontainers.image.title: "Papra"
   org.opencontainers.image.description: "Minimal document management platform"
