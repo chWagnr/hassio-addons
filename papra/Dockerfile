@@ -3,7 +3,9 @@ ARG BUILD_FROM
 FROM ${BUILD_FROM}
 
 # Install bashio
-RUN apk add --no-cache bash curl jq \
+RUN apt-get update \
+  && apt-get install -y --no-install-recommends bash curl jq ca-certificates \
+  && rm -rf /var/lib/apt/lists/* \
   && curl -J -L -o /tmp/bashio.tar.gz \
   "https://github.com/hassio-addons/bashio/archive/refs/heads/main.tar.gz" \
   && mkdir -p /usr/lib/bashio \
