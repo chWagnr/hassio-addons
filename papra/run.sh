@@ -2,7 +2,7 @@
 set -euo pipefail
 
 # shellcheck source=/dev/null
-source /usr/lib/bashio/bashio.sh
+source /usr/lib/bashio/lib/bashio.sh
 
 # ---------------------------------------------------------------------------
 # Papra – Home Assistant Add-on run script
