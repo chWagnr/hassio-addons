@@ -15,6 +15,7 @@ ports:
 ports_description:
   1221/tcp: Papra Web UI
 webui: http://[HOST]:[PORT:1221]
+watchdog: tcp://[HOST]:[PORT:1221]
 map:
   - addon_config:rw
   - share:rw
