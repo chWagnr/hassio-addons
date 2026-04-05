@@ -1,8 +1,8 @@
 {
   "name": "Home Assistant Add-on Devcontainer",
   "image": "ghcr.io/home-assistant/devcontainer:2-addons",
-  "appPort": ["7123:8123", "7357:4357"],
-  "postStartCommand": "bash devcontainer_bootstrap",
+  "appPort": ["7123:8123", "7357:4357", "1221:1221"],
+  "postCreateCommand": "bash devcontainer_bootstrap",
   "runArgs": ["-e", "GIT_EDITOR=code --wait", "--privileged"],
   "containerEnv": {
     "WORKSPACE_DIRECTORY": "${containerWorkspaceFolder}"
@@ -27,7 +27,10 @@
     }
   },
   "mounts": [
-    "type=volume,target=/var/lib/docker",
-    "type=volume,target=/mnt/supervisor"
+    "type=volume,source=hassio-addons-docker,target=/var/lib/docker",
+    "type=volume,source=hassio-addons-supervisor,target=/mnt/supervisor",
+    "type=volume,source=hassio-addons-cache,target=/home/vscode/.cache",
+    "type=volume,source=hassio-addons-npm,target=/home/vscode/.npm",
+    "type=volume,source=hassio-addons-pnpm,target=/home/vscode/.pnpm-store"
   ]
 }

@@ -3,7 +3,7 @@ version: "26.3.0"
 slug: papra
 description: Minimal document management platform – self-hosted with a clean UI.
 url: https://github.com/chWagnr/hassio-addons/tree/main/papra
-panel_admin: true
+panel_admin: false
 panel_icon: mdi:file-document-outline
 panel_title: Papra
 arch:
@@ -22,12 +22,12 @@ map:
 backup: cold
 options:
   app_base_url: "http://homeassistant.local:1221"
-  auth_secret: ""
+  auth_secret: null
   trusted_origins: ""
   extra_env: []
 schema:
   app_base_url: str
-  auth_secret: str
+  auth_secret: password
   trusted_origins: str?
   extra_env:
     - str
