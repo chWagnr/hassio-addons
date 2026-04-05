@@ -2,11 +2,7 @@
 
 Minimalistic, self-hosted document archiving platform.
 
-<picture>
-    <source srcset="./icon.png" media="(prefers-color-scheme: light)">
-    <source srcset="./dark_icon.png" media="(prefers-color-scheme: dark)">
-    <img src="./icon.png" alt="Papra logo">
-</picture>
+![Papra logo](./logo.png)
 
 ## About
 
