@@ -2,8 +2,6 @@
 
 Minimalistic, self-hosted document archiving platform.
 
-![Papra logo](./logo.png)
-
 ## About
 
 [Papra](https://papra.app) is a clean, minimal document management solution you can run
@@ -16,7 +14,7 @@ wires it into the Home Assistant ecosystem, giving you:
 
 ## Installation
 
-1. Add this repository to your Home Assistant add-on store:  
+1. Add this repository to your Home Assistant add-on store:
    `https://github.com/chWagnr/hassio-addons`
 2. Find **Papra** in the add-on store and click **Install**.
 3. Configure at minimum `app_base_url` and `auth_secret` in the add-on configuration.
