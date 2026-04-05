@@ -1,6 +1,10 @@
-ARG BUILD_FROM
 # hadolint ignore=DL3006
-FROM ${BUILD_FROM}
+FROM ghcr.io/papra-hq/papra:26.3.0-root
+
+LABEL org.opencontainers.image.title="Papra" \
+  org.opencontainers.image.description="Minimal document management platform" \
+  org.opencontainers.image.source="https://github.com/chWagnr/hassio-addons" \
+  org.opencontainers.image.licenses="MIT"
 
 # Install bashio
 RUN apt-get update \

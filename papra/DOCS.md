@@ -61,8 +61,11 @@ Papra uses two persistent locations:
 - `/share/papra/documents` for uploaded and managed documents
 
 Inside Home Assistant, `addon_config:rw` maps this add-on's dedicated host directory
-(`/addon_configs/papra`) to `/config` inside the container, while `/share` maps to the
-shared folder that is also commonly available through Samba and SSH.
+(`/addon_configs/{REPO}_papra`) to `/config` inside the container, while `/share` maps
+to the shared folder that is also commonly available through Samba and SSH.
+
+If the add-on is installed from a local repository, `{REPO}` is typically `local`. For
+GitHub repositories, Home Assistant uses a generated identifier for the repository.
 
 ## Backup
 

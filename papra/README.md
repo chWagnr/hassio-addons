@@ -38,9 +38,9 @@ This includes:
 - uploaded and managed documents in `/share/papra/documents`
 
 Inside Home Assistant, the database lives in Papra's add-on config storage. On the host
-this is under `/addon_configs/papra`, and inside the container it is available at
-`/config`. Documents are stored in the shared folder so they can also be reached via
-Samba or SSH.
+this is under `/addon_configs/{REPO}_papra`, where `{REPO}` depends on how the add-on
+repository was added. Inside the container it is available at `/config`. Documents are
+stored in the shared folder so they can also be reached via Samba or SSH.
 
 ## Backing up
 
