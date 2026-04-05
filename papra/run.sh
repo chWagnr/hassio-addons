@@ -10,15 +10,24 @@ source /usr/lib/bashio/lib/bashio.sh
 
 bashio::log.info "Starting Papra..."
 
-# Ensure persistent data directory exists (db and documents sub-dirs required by Papra)
-DATA_DIR="/data/papra"
-mkdir -p "${DATA_DIR}/db" "${DATA_DIR}/documents"
+# Keep the database in add-on config storage and expose documents via /share.
+CONFIG_DIR="/config"
+DB_DIR="${CONFIG_DIR}/db"
+SHARE_DIR="/share/papra"
+DOCUMENTS_DIR="${SHARE_DIR}/documents"
+APP_DATA_DIR="/app/app-data"
 
-# Symlink /app/app-data -> /data/papra so Papra persists data through HA
-if [ ! -L /app/app-data ]; then
-    rm -rf /app/app-data
-    ln -s "${DATA_DIR}" /app/app-data
+mkdir -p "${DB_DIR}" "${DOCUMENTS_DIR}"
+
+# Papra expects /app/app-data/{db,documents}. Wire those subdirectories to the
+# Home Assistant add-on config dir and the shared documents folder.
+if [ -L "${APP_DATA_DIR}" ]; then
+    rm -f "${APP_DATA_DIR}"
 fi
+mkdir -p "${APP_DATA_DIR}"
+rm -rf "${APP_DATA_DIR}/db" "${APP_DATA_DIR}/documents"
+ln -s "${DB_DIR}" "${APP_DATA_DIR}/db"
+ln -s "${DOCUMENTS_DIR}" "${APP_DATA_DIR}/documents"
 
 # ---------------------------------------------------------------------------
 # Read configuration from Home Assistant options

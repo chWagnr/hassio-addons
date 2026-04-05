@@ -1,5 +1,5 @@
 name: Papra
-version: "26.3.0"
+version: "26.3.1"
 slug: papra
 description: Minimal document management platform – self-hosted with a clean UI.
 url: https://github.com/chWagnr/hassio-addons/tree/main/papra
@@ -16,7 +16,8 @@ ports_description:
   1221/tcp: Papra Web UI
 webui: http://[HOST]:[PORT:1221]
 map:
-  - data:rw
+  - addon_config:rw
+  - share:rw
 backup: cold
 options:
   app_base_url: "http://homeassistant.local:1221"
