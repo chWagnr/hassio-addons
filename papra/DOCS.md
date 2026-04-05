@@ -91,6 +91,17 @@ to restore from.
 |------|-------------|
 | 1221 | Papra Web UI |
 
+## Home Assistant Ingress
+
+Home Assistant Ingress was evaluated for this add-on, but is currently not recommended.
+
+Papra starts behind the Home Assistant Ingress proxy, but the frontend renders as a white
+page when loaded from the Supervisor-managed subpath. This strongly indicates that Papra
+does not currently handle Home Assistant's subpath-based Ingress model cleanly enough for
+reliable use.
+
+For now, the recommended access mode remains direct access on port `1221`.
+
 ## Support
 
 Please open an issue in the
