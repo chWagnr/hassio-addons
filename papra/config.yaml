@@ -3,6 +3,9 @@ version: "26.3.0"
 slug: papra
 description: Minimal document management platform – self-hosted with a clean UI.
 url: https://github.com/chWagnr/hassio-addons/tree/main/papra
+panel_admin: true
+panel_icon: mdi:file-document-outline
+panel_title: Papra
 arch:
   - amd64
   - aarch64
@@ -11,6 +14,7 @@ ports:
   1221/tcp: 1221
 ports_description:
   1221/tcp: Papra Web UI
+webui: http://[HOST]:[PORT:1221]
 map:
   - data:rw
 backup: cold
