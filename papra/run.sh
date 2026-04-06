@@ -52,26 +52,40 @@ fi
 # Protected variable names that must not be overridden via extra_env
 readonly -a _PROTECTED_VARS=(APP_BASE_URL AUTH_SECRET TRUSTED_ORIGINS)
 
-# Apply any extra environment variables supplied by the user (KEY=VALUE pairs)
-if bashio::config.has_value 'extra_env'; then
-    while IFS= read -r env_line; do
-        var_name="${env_line%%=*}"
-        # Validate: name must consist only of letters, digits, and underscores,
-        # must start with a letter or underscore, and must not override protected vars.
-        if [[ ! "${var_name}" =~ ^[A-Za-z_][A-Za-z0-9_]*$ ]]; then
-            bashio::log.warning "Skipping extra_env entry with invalid variable name: '${var_name}'"
-            continue
+# Apply any extra environment variables supplied by the user (KEY=VALUE pairs).
+# Iterate directly over the configured list instead of using has_value, which is
+# reliable for scalar fields but fragile for arrays.
+while IFS= read -r env_line; do
+    env_line="${env_line#"${env_line%%[![:space:]]*}"}"
+    env_line="${env_line%"${env_line##*[![:space:]]}"}"
+
+    if [ -z "${env_line}" ]; then
+        continue
+    fi
+
+    if [[ "${env_line}" != *=* ]]; then
+        bashio::log.warning "Skipping malformed extra_env entry without '=': '${env_line}'"
+        continue
+    fi
+
+    var_name="${env_line%%=*}"
+    # Validate: name must consist only of letters, digits, and underscores,
+    # must start with a letter or underscore, and must not override protected vars.
+    if [[ ! "${var_name}" =~ ^[A-Za-z_][A-Za-z0-9_]*$ ]]; then
+        bashio::log.warning "Skipping extra_env entry with invalid variable name: '${var_name}'"
+        continue
+    fi
+
+    for protected in "${_PROTECTED_VARS[@]}"; do
+        if [ "${var_name}" = "${protected}" ]; then
+            bashio::log.warning "Skipping extra_env entry: '${var_name}' is a protected variable."
+            continue 2
         fi
-        for protected in "${_PROTECTED_VARS[@]}"; do
-            if [ "${var_name}" = "${protected}" ]; then
-                bashio::log.warning "Skipping extra_env entry: '${var_name}' is a protected variable."
-                continue 2
-            fi
-        done
-        bashio::log.debug "Exporting extra env: ${var_name}"
-        export "${env_line?}"
-    done < <(bashio::config 'extra_env | .[]')
-fi
+    done
+
+    bashio::log.info "Exporting extra env: ${var_name}"
+    export "${env_line?}"
+done < <(bashio::config 'extra_env[]?')
 
 bashio::log.info "APP_BASE_URL: ${APP_BASE_URL}"
 bashio::log.info "Launching Papra..."
