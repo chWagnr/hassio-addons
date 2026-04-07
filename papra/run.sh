@@ -55,6 +55,8 @@ readonly -a _PROTECTED_VARS=(APP_BASE_URL AUTH_SECRET TRUSTED_ORIGINS)
 # Apply any extra environment variables supplied by the user (KEY=VALUE pairs).
 # Iterate directly over the configured list instead of using has_value, which is
 # reliable for scalar fields but fragile for arrays.
+EXTRA_ENV_RAW="$(bashio::config 'extra_env')"
+
 while IFS= read -r env_line; do
     env_line="${env_line#"${env_line%%[![:space:]]*}"}"
     env_line="${env_line%"${env_line##*[![:space:]]}"}"
@@ -85,7 +87,7 @@ while IFS= read -r env_line; do
 
     bashio::log.info "Exporting extra env: ${var_name}"
     export "${env_line?}"
-done < <(bashio::config 'extra_env[]?')
+done <<< "${EXTRA_ENV_RAW}"
 
 bashio::log.info "APP_BASE_URL: ${APP_BASE_URL}"
 bashio::log.info "Launching Papra..."
