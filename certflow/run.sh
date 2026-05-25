@@ -212,6 +212,22 @@ run_once() {
     done
 }
 
+stop_addon() {
+    if [ -z "${SUPERVISOR_TOKEN:-}" ]; then
+        bashio::log.warning "Supervisor token is not available; keeping CertFlow idle to avoid restart loops."
+        return
+    fi
+
+    bashio::log.info "Stopping CertFlow add-on."
+    if ! curl --fail --silent --show-error \
+        --request POST \
+        --header "Authorization: Bearer ${SUPERVISOR_TOKEN}" \
+        "http://supervisor/addons/self/stop" \
+        > /dev/null; then
+        bashio::log.warning "Could not request Supervisor stop; keeping CertFlow idle to avoid restart loops."
+    fi
+}
+
 bashio::log.info "Starting CertFlow..."
 
 EMAIL="$(require_string "email")"
@@ -230,3 +246,8 @@ bashio::log.info "Certificates will be exported below ${OUTPUT_PATH}/<certificat
 
 run_once "${EMAIL}" "${STAGING}" "${PROPAGATION_SECONDS}" "${OUTPUT_PATH}"
 bashio::log.info "CertFlow finished."
+stop_addon
+
+# Keep the process alive until the Supervisor stop request terminates the
+# container. Exiting immediately can be interpreted as a process restart.
+sleep infinity
