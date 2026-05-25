@@ -102,5 +102,21 @@ Certbot state is stored in the add-on config directory:
 This keeps the Let's Encrypt account and renewal configuration stable across
 restarts.
 
-CertFlow checks for renewals every 12 hours, matching Certbot's common packaged
-timer behavior.
+CertFlow is a one-shot add-on. It runs Certbot once, exports the current
+certificate files, and then stops. Use a Home Assistant automation to start it
+regularly, for example once per day:
+
+```yaml
+alias: Run CertFlow daily
+trigger:
+  - platform: time
+    at: "03:15:00"
+action:
+  - service: hassio.addon_start
+    data:
+      addon: local_certflow
+mode: single
+```
+
+If Home Assistant shows a different add-on ID, use that ID instead of
+`local_certflow`.

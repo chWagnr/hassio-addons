@@ -11,7 +11,6 @@ WORK_DIR="${CONFIG_DIR}/work"
 LOGS_DIR="${CONFIG_DIR}/logs"
 CREDENTIALS_DIR="${CONFIG_DIR}/credentials"
 CREDENTIALS_FILE="${CREDENTIALS_DIR}/strato.ini"
-RENEW_INTERVAL_SECONDS=43200
 
 require_string() {
     local key="$1"
@@ -229,8 +228,5 @@ write_credentials_file "${STRATO_USERNAME}" "${STRATO_PASSWORD}"
 
 bashio::log.info "Certificates will be exported below ${OUTPUT_PATH}/<certificate-name>."
 
-while true; do
-    run_once "${EMAIL}" "${STAGING}" "${PROPAGATION_SECONDS}" "${OUTPUT_PATH}"
-    bashio::log.info "Next renewal check in 12 hours."
-    sleep "${RENEW_INTERVAL_SECONDS}"
-done
+run_once "${EMAIL}" "${STAGING}" "${PROPAGATION_SECONDS}" "${OUTPUT_PATH}"
+bashio::log.info "CertFlow finished."

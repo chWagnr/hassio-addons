@@ -16,6 +16,10 @@ Assistant itself should consume certificate files from `/ssl`.
 4. Start the add-on.
 5. Point Caddy or another service at the exported certificate files.
 
+CertFlow is a one-shot add-on: it runs Certbot, exports the certificate files,
+and then stops. Start it manually or with a Home Assistant automation on the
+schedule you want.
+
 ## Output
 
 The `output_path` option controls the base directory inside `/ssl`. Leave it
