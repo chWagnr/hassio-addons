@@ -3,6 +3,7 @@ version: "26.4.0"
 slug: papra
 description: Minimal document management platform – self-hosted with a clean UI.
 url: https://github.com/chWagnr/hassio-addons/tree/main/papra
+image: ghcr.io/chwagnr/{arch}-addon-papra
 panel_admin: false
 panel_icon: mdi:file-document-outline
 panel_title: Papra
