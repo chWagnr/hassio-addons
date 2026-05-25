@@ -10,7 +10,6 @@ init: false
 arch:
   - amd64
   - aarch64
-  - armv7
 map:
   - addon_config:rw
   - ssl:rw
@@ -33,7 +32,7 @@ schema:
   strato_username: str
   strato_password: password
   propagation_seconds: int(60,1800)
-  output_path: str
+  output_path: str?
   certificates:
     - name: str
       domains:
