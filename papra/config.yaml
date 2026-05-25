@@ -10,7 +10,6 @@ panel_title: Papra
 arch:
   - amd64
   - aarch64
-  - armv7
 ports:
   1221/tcp: 1221
 ports_description:
