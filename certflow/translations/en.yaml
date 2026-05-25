@@ -1,0 +1,22 @@
+configuration:
+  email:
+    name: Let's Encrypt email
+    description: Email address used for the Let's Encrypt account.
+  staging:
+    name: Use staging
+    description: Use the Let's Encrypt staging environment for testing.
+  strato_username:
+    name: Strato username
+    description: Strato customer number or login name.
+  strato_password:
+    name: Strato password
+    description: Password for the Strato customer login.
+  propagation_seconds:
+    name: DNS propagation wait
+    description: Seconds Certbot waits before asking Let's Encrypt to validate DNS records.
+  output_path:
+    name: Output path
+    description: Base path below /ssl. CertFlow appends /<certificate-name>/fullchain.pem and related files.
+  certificates:
+    name: Certificates
+    description: Certificate groups with a name and a list of domains.

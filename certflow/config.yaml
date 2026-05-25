@@ -1,0 +1,40 @@
+name: CertFlow
+version: "0.1.0"
+slug: certflow
+description: ACME DNS-01 certificate exporter for Home Assistant OS.
+url: https://github.com/chWagnr/hassio-addons/tree/main/certflow
+image: ghcr.io/chwagnr/{arch}-addon-certflow
+startup: services
+boot: auto
+init: false
+arch:
+  - amd64
+  - aarch64
+  - armv7
+map:
+  - addon_config:rw
+  - ssl:rw
+backup: cold
+options:
+  email: ""
+  staging: false
+  strato_username: ""
+  strato_password: null
+  propagation_seconds: 300
+  output_path: ""
+  certificates:
+    - name: "example.de"
+      domains:
+        - "example.de"
+        - "*.example.de"
+schema:
+  email: str
+  staging: bool
+  strato_username: str
+  strato_password: password
+  propagation_seconds: int(60,1800)
+  output_path: str
+  certificates:
+    - name: str
+      domains:
+        - str
