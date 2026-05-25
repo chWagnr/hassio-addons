@@ -48,7 +48,7 @@ Use this to configure advanced Papra options not yet exposed as first-class add-
 
 ```yaml
 extra_env:
-  - PAPRA_UPLOAD_MAX_FILE_SIZE=52428800
+  - DOCUMENT_STORAGE_MAX_UPLOAD_SIZE=52428800
 ```
 
 ---

@@ -1,5 +1,6 @@
 # hadolint ignore=DL3006
-FROM ghcr.io/papra-hq/papra:26.4.2-root
+ARG PAPRA_VERSION
+FROM ghcr.io/papra-hq/papra:${PAPRA_VERSION}-root
 
 LABEL org.opencontainers.image.title="Papra" \
   org.opencontainers.image.description="Minimal document management platform" \

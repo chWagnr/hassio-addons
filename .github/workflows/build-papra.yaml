@@ -74,5 +74,7 @@ jobs:
           platforms: ${{ matrix.platform }}
           push: true
           provenance: false
+          build-args: |
+            PAPRA_VERSION=${{ needs.prepare.outputs.version }}
           labels: ${{ steps.meta.outputs.labels }}
           tags: ${{ steps.meta.outputs.tags }}
