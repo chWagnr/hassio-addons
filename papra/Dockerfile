@@ -1,5 +1,5 @@
 # hadolint ignore=DL3006
-ARG PAPRA_IMAGE=ghcr.io/papra-hq/papra:26.4.2-root
+ARG PAPRA_IMAGE=ghcr.io/papra-hq/papra:26.6.1-root
 FROM ${PAPRA_IMAGE}
 
 LABEL org.opencontainers.image.title="Papra" \
