@@ -108,6 +108,7 @@ jobs:
           done
 
       - name: Create changelog pull request
+        id: changelog-pr
         uses: peter-evans/create-pull-request@v8
         with:
           branch: automation/addon-changelog
@@ -116,3 +117,9 @@ jobs:
           commit-message: "docs: update add-on changelogs"
           title: "docs: update add-on changelogs"
           body: "Automatisch aus Änderungen an den Add-on-Versionen generiert."
+
+      - name: Enable squash auto-merge
+        if: steps.changelog-pr.outputs.pull-request-number != ''
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh pr merge "${{ steps.changelog-pr.outputs.pull-request-number }}" --auto --squash --delete-branch
