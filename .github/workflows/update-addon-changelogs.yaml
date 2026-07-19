@@ -66,7 +66,18 @@ jobs:
             previous_version="$(sed -n '/^## \[Unreleased\]$/d; s/^## \[\([^]]*\)\].*/\1/p' "${changelog_file}" | head -n 1)"
             baseline_commit=""
             if [ -n "${previous_version}" ]; then
-              baseline_commit="$(git log -G "version: \"${previous_version}\"" --format=%H -n 1 -- "${config_file}")"
+              # -G also matches the removal of the previous version in the
+              # current version-bump commit. Select the commit that added it,
+              # so the current bump remains part of the changelog range.
+              baseline_commit="$(
+                git log -G "^version: \"${previous_version}\"$" --format=%H -- "${config_file}" |
+                  while read -r candidate; do
+                    if git show --format= --unified=0 "${candidate}" -- "${config_file}" | grep -Fqx "+version: \"${previous_version}\""; then
+                      echo "${candidate}"
+                      break
+                    fi
+                  done
+              )"
             fi
             if [ "${EVENT_NAME}" = "workflow_dispatch" ] && [ "${version}" = "${previous_version}" ]; then
               echo "${addon} changelog is already current; skipping."
