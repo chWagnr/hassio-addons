@@ -7,16 +7,18 @@ on:
     paths:
       - "certflow/config.yaml"
       - "papra/config.yaml"
+  workflow_dispatch:
 
 permissions:
   contents: write
+  pull-requests: write
 
 concurrency:
-  group: addon-release-${{ github.ref }}
+  group: addon-changelog-${{ github.ref }}
   cancel-in-progress: false
 
 jobs:
-  release:
+  changelog:
     runs-on: ubuntu-latest
     steps:
       - name: Check out repository
@@ -27,20 +29,22 @@ jobs:
       - name: Create changelog entries
         env:
           BEFORE_SHA: ${{ github.event.before }}
+          EVENT_NAME: ${{ github.event_name }}
         run: |
           set -euo pipefail
 
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-
-          changed_files="$(git diff --name-only "${BEFORE_SHA}" "${GITHUB_SHA}")"
+          if [ "${EVENT_NAME}" = "workflow_dispatch" ]; then
+            changed_files=$'certflow/config.yaml\npapra/config.yaml'
+          else
+            changed_files="$(git diff --name-only "${BEFORE_SHA}" "${GITHUB_SHA}")"
+          fi
 
           for addon in certflow papra; do
             config_file="${addon}/config.yaml"
             if ! printf '%s\n' "${changed_files}" | grep -qx "${config_file}"; then
               continue
             fi
-            if ! git diff --unified=0 "${BEFORE_SHA}" "${GITHUB_SHA}" -- "${config_file}" | grep -qE '^\+version: '; then
+            if [ "${EVENT_NAME}" != "workflow_dispatch" ] && ! git diff --unified=0 "${BEFORE_SHA}" "${GITHUB_SHA}" -- "${config_file}" | grep -qE '^\+version: '; then
               echo "${config_file} changed without a version update; skipping."
               continue
             fi
@@ -63,6 +67,10 @@ jobs:
             baseline_commit=""
             if [ -n "${previous_version}" ]; then
               baseline_commit="$(git log -G "version: \"${previous_version}\"" --format=%H -n 1 -- "${config_file}")"
+            fi
+            if [ "${EVENT_NAME}" = "workflow_dispatch" ] && [ "${version}" = "${previous_version}" ]; then
+              echo "${addon} changelog is already current; skipping."
+              continue
             fi
             commit_range="${baseline_commit:+${baseline_commit}..}${GITHUB_SHA}"
 
@@ -97,7 +105,14 @@ jobs:
             ' "${changelog_file}" > "${updated_changelog}"
             mv "${updated_changelog}" "${changelog_file}"
 
-            git add "${changelog_file}"
-            git commit -m "docs: add ${display_name} ${version} changelog"
-            git push
           done
+
+      - name: Create changelog pull request
+        uses: peter-evans/create-pull-request@v8
+        with:
+          branch: automation/addon-changelog
+          delete-branch: true
+          sign-commits: true
+          commit-message: "docs: update add-on changelogs"
+          title: "docs: update add-on changelogs"
+          body: "Automatisch aus Änderungen an den Add-on-Versionen generiert."
