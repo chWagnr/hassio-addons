@@ -6,6 +6,12 @@ zugehörigen Commits aktualisiert.
 
 ## [Unreleased]
 
+## [0.1.4] - 2026-07-19
+
+### Änderungen
+- Versionsupdate und Wartung.
+
+
 ## [0.1.3]
 
 Erste erfasste Version; Änderungen davor werden nicht rückwirkend aufgelistet.
