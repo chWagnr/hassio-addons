@@ -1,2 +1,2 @@
-certbot==4.2.0
+certbot==5.7.0
 certbot-dns-strato==0.2.4
