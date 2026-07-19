@@ -36,6 +36,12 @@
       ]
     },
     {
+      "description": "Use the Papra regex manager instead of the Dockerfile manager",
+      "matchManagers": ["dockerfile"],
+      "matchFileNames": ["papra/Dockerfile"],
+      "enabled": false
+    },
+    {
       "description": "Keep the Papra add-on version in sync with its upstream image",
       "matchManagers": ["custom.regex"],
       "matchFileNames": ["papra/Dockerfile"],
