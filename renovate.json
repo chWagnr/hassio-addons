@@ -6,6 +6,17 @@
   "minimumReleaseAge": "3 days",
   "minimumReleaseAgeBehaviour": "timestamp-required",
   "internalChecksFilter": "strict",
+  "customManagers": [
+    {
+      "customType": "regex",
+      "description": "Update the Papra upstream image version",
+      "managerFilePatterns": ["papra/Dockerfile"],
+      "matchStrings": [
+        "# renovate: datasource=(?<datasource>[^\\s]+) depName=(?<depName>[^\\s]+) versioning=(?<versioning>[^\\s]+)\\s+ARG PAPRA_VERSION=(?<currentValue>[0-9]+\\.[0-9]+\\.[0-9]+)"
+      ],
+      "versioningTemplate": "{{{versioning}}}"
+    }
+  ],
   "packageRules": [
     {
       "description": "Release CertFlow on dependency updates",
@@ -21,6 +32,22 @@
             "version:\\s+\"?(?<version>[0-9]+\\.[0-9]+\\.[0-9]+)\"?"
           ],
           "bumpType": "patch"
+        }
+      ]
+    },
+    {
+      "description": "Keep the Papra add-on version in sync with its upstream image",
+      "matchManagers": ["custom.regex"],
+      "matchFileNames": ["papra/Dockerfile"],
+      "matchPackageNames": ["ghcr.io/papra-hq/papra"],
+      "bumpVersions": [
+        {
+          "name": "Papra add-on version",
+          "filePatterns": ["papra/config.yaml"],
+          "matchStrings": [
+            "version:\\s+\"?(?<version>[0-9]+\\.[0-9]+\\.[0-9]+)\"?"
+          ],
+          "bumpType": "sync"
         }
       ]
     }

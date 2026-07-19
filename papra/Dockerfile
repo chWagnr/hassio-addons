@@ -1,5 +1,6 @@
 # hadolint ignore=DL3006
-ARG PAPRA_VERSION
+# renovate: datasource=docker depName=ghcr.io/papra-hq/papra versioning=semver
+ARG PAPRA_VERSION=26.4.2
 FROM ghcr.io/papra-hq/papra:${PAPRA_VERSION}-root
 
 LABEL org.opencontainers.image.title="Papra" \
