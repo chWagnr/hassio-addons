@@ -1,6 +1,6 @@
 {
   "name": "Home Assistant Add-on Devcontainer",
-  "image": "ghcr.io/home-assistant/devcontainer:2-addons",
+  "image": "ghcr.io/home-assistant/devcontainer:3-addons",
   "appPort": ["7123:8123", "7357:4357", "1221:1221"],
   "postCreateCommand": "bash devcontainer_bootstrap",
   "runArgs": ["-e", "GIT_EDITOR=code --wait", "--privileged"],
