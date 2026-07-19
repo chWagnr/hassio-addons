@@ -1,4 +1,4 @@
-FROM python:3.12-slim-bookworm
+FROM python:3.14-slim-bookworm
 
 LABEL org.opencontainers.image.title="CertFlow" \
   org.opencontainers.image.description="ACME DNS-01 certificate exporter for Home Assistant OS" \
