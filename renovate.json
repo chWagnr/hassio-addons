@@ -1,0 +1,23 @@
+{
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "extends": ["config:recommended"],
+  "packageRules": [
+    {
+      "description": "Release CertFlow on dependency updates",
+      "matchFileNames": [
+        "certflow/Dockerfile",
+        "certflow/requirements.txt"
+      ],
+      "bumpVersions": [
+        {
+          "name": "CertFlow add-on version",
+          "filePatterns": ["certflow/config.yaml"],
+          "matchStrings": [
+            "version:\\s+\"?(?<version>[0-9]+\\.[0-9]+\\.[0-9]+)\"?"
+          ],
+          "bumpType": "patch"
+        }
+      ]
+    }
+  ]
+}

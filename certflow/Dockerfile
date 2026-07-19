@@ -7,6 +7,8 @@ LABEL org.opencontainers.image.title="CertFlow" \
 
 SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 
+COPY requirements.txt /tmp/requirements.txt
+
 RUN apt-get update \
   && apt-get install -y --no-install-recommends \
     bash \
@@ -16,9 +18,7 @@ RUN apt-get update \
     jq \
     openssl \
     tar \
-  && pip install --no-cache-dir \
-    certbot==4.2.0 \
-    certbot-dns-strato==0.2.4 \
+  && pip install --no-cache-dir -r /tmp/requirements.txt \
   && curl -J -L -o /tmp/bashio.tar.gz \
     "https://github.com/hassio-addons/bashio/archive/refs/heads/main.tar.gz" \
   && mkdir -p /usr/lib/bashio \
