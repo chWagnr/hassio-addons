@@ -1,0 +1,103 @@
+name: Update add-on changelogs
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - "certflow/config.yaml"
+      - "papra/config.yaml"
+
+permissions:
+  contents: write
+
+concurrency:
+  group: addon-release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - name: Create changelog entries
+        env:
+          BEFORE_SHA: ${{ github.event.before }}
+        run: |
+          set -euo pipefail
+
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+          changed_files="$(git diff --name-only "${BEFORE_SHA}" "${GITHUB_SHA}")"
+
+          for addon in certflow papra; do
+            config_file="${addon}/config.yaml"
+            if ! printf '%s\n' "${changed_files}" | grep -qx "${config_file}"; then
+              continue
+            fi
+            if ! git diff --unified=0 "${BEFORE_SHA}" "${GITHUB_SHA}" -- "${config_file}" | grep -qE '^\+version: '; then
+              echo "${config_file} changed without a version update; skipping."
+              continue
+            fi
+
+            version="$(sed -n 's/^version: "\(.*\)"$/\1/p' "${config_file}")"
+            if [ -z "${version}" ]; then
+              echo "Unable to read the version from ${config_file}." >&2
+              exit 1
+            fi
+
+            case "${addon}" in
+              certflow) display_name="CertFlow" ;;
+              papra) display_name="Papra" ;;
+            esac
+            changelog_file="${addon}/CHANGELOG.md"
+
+            # Start after the version currently recorded in this add-on's
+            # changelog, so changes are listed exactly once.
+            previous_version="$(sed -n '/^## \[Unreleased\]$/d; s/^## \[\([^]]*\)\].*/\1/p' "${changelog_file}" | head -n 1)"
+            baseline_commit=""
+            if [ -n "${previous_version}" ]; then
+              baseline_commit="$(git log -G "version: \"${previous_version}\"" --format=%H -n 1 -- "${config_file}")"
+            fi
+            commit_range="${baseline_commit:+${baseline_commit}..}${GITHUB_SHA}"
+
+            notes_file="$(mktemp)"
+            {
+              echo "## ${display_name} ${version}"
+              echo
+              echo "### Änderungen"
+              git log --no-merges --format='- %s ([%h](https://github.com/${GITHUB_REPOSITORY}/commit/%H))' "${commit_range}" -- "${addon}" renovate.json
+            } > "${notes_file}"
+
+            if ! grep -q '^-' "${notes_file}"; then
+              echo "- Versionsupdate und Wartung." >> "${notes_file}"
+            fi
+
+            changelog_entry="$(mktemp)"
+            {
+              echo "## [${version}] - $(date -u +%F)"
+              echo
+              sed '1,2d' "${notes_file}"
+              echo
+            } > "${changelog_entry}"
+
+            updated_changelog="$(mktemp)"
+            awk -v entry="${changelog_entry}" '
+              { print }
+              /^## \[Unreleased\]$/ {
+                print ""
+                while ((getline line < entry) > 0) print line
+                close(entry)
+              }
+            ' "${changelog_file}" > "${updated_changelog}"
+            mv "${updated_changelog}" "${changelog_file}"
+
+            git add "${changelog_file}"
+            git commit -m "docs: add ${display_name} ${version} changelog"
+            git push
+          done
