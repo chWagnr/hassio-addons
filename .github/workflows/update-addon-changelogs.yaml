@@ -90,7 +90,9 @@ jobs:
               echo "## ${display_name} ${version}"
               echo
               echo "### Änderungen"
-              git log --no-merges --format='- %s ([%h](https://github.com/${GITHUB_REPOSITORY}/commit/%H))' "${commit_range}" -- "${addon}" renovate.json
+              git log --no-merges \
+                --format="- %s ([%h](https://github.com/${GITHUB_REPOSITORY}/commit/%H))" \
+                "${commit_range}" -- "${addon}" ":(exclude)${changelog_file}"
             } > "${notes_file}"
 
             if ! grep -q '^-' "${notes_file}"; then
@@ -107,12 +109,16 @@ jobs:
 
             updated_changelog="$(mktemp)"
             awk -v entry="${changelog_entry}" '
-              { print }
               /^## \[Unreleased\]$/ {
+                print
                 print ""
                 while ((getline line < entry) > 0) print line
                 close(entry)
+                in_unreleased = 1
+                next
               }
+              in_unreleased && /^## \[/ { in_unreleased = 0 }
+              !in_unreleased { print }
             ' "${changelog_file}" > "${updated_changelog}"
             mv "${updated_changelog}" "${changelog_file}"
 
