@@ -11,6 +11,12 @@ configuration:
   strato_password:
     name: Strato password
     description: Password for the Strato customer login.
+  strato_totp_devicename:
+    name: Strato 2FA device name
+    description: Exact name of the TOTP device registered in the Strato customer login. Leave empty when 2FA is disabled.
+  strato_totp_secret:
+    name: Strato 2FA TOTP secret
+    description: Base32 TOTP setup secret for the registered device, not the current six-digit code. Leave empty when 2FA is disabled.
   propagation_seconds:
     name: DNS propagation wait
     description: Seconds Certbot waits before asking Let's Encrypt to validate DNS records.

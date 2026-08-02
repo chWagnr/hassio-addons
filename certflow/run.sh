@@ -82,12 +82,18 @@ normalize_output_path() {
 write_credentials_file() {
     local username="$1"
     local password="$2"
+    local totp_devicename="$3"
+    local totp_secret="$4"
 
     mkdir -p "${CREDENTIALS_DIR}"
     umask 077
     {
         printf 'dns_strato_username = %s\n' "${username}"
         printf 'dns_strato_password = %s\n' "${password}"
+        if [ -n "${totp_devicename}" ]; then
+            printf 'dns_strato_totp_devicename = %s\n' "${totp_devicename}"
+            printf 'dns_strato_totp_secret = %s\n' "${totp_secret}"
+        fi
     } > "${CREDENTIALS_FILE}"
     chmod 600 "${CREDENTIALS_FILE}"
 }
@@ -283,14 +289,21 @@ bashio::log.info "Starting CertFlow..."
 EMAIL="$(require_string "email")"
 STRATO_USERNAME="$(require_string "strato_username")"
 STRATO_PASSWORD="$(require_string "strato_password")"
+STRATO_TOTP_DEVICENAME="$(jq -r '.strato_totp_devicename // ""' "${OPTIONS_FILE}")"
+STRATO_TOTP_SECRET="$(jq -r '.strato_totp_secret // ""' "${OPTIONS_FILE}")"
 STAGING="$(jq -r '.staging // false' "${OPTIONS_FILE}")"
 PROPAGATION_SECONDS="$(jq -r '.propagation_seconds // 300' "${OPTIONS_FILE}")"
 OUTPUT_PATH="$(jq -r '.output_path // ""' "${OPTIONS_FILE}")"
 OUTPUT_PATH="$(normalize_output_path "${OUTPUT_PATH}")"
 
 validate_output_path "${OUTPUT_PATH}"
+if { [ -n "${STRATO_TOTP_DEVICENAME}" ] && [ -z "${STRATO_TOTP_SECRET}" ]; } || \
+   { [ -z "${STRATO_TOTP_DEVICENAME}" ] && [ -n "${STRATO_TOTP_SECRET}" ]; }; then
+    bashio::log.fatal "Configuration options 'strato_totp_devicename' and 'strato_totp_secret' must either both be set or both be empty."
+    exit 1
+fi
 mkdir -p "${LETSENCRYPT_DIR}" "${WORK_DIR}" "${LOGS_DIR}" "${OUTPUT_PATH}"
-write_credentials_file "${STRATO_USERNAME}" "${STRATO_PASSWORD}"
+write_credentials_file "${STRATO_USERNAME}" "${STRATO_PASSWORD}" "${STRATO_TOTP_DEVICENAME}" "${STRATO_TOTP_SECRET}"
 
 bashio::log.info "Certificates will be exported below ${OUTPUT_PATH}/<certificate-name>."
 

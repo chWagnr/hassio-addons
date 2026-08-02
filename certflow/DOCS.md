@@ -9,6 +9,8 @@ email: admin@example.de
 staging: true
 strato_username: "123456789"
 strato_password: "change-me"
+strato_totp_devicename: ""
+strato_totp_secret: null
 propagation_seconds: 300
 output_path: ""
 certificates:
@@ -35,6 +37,19 @@ Strato customer number or login name.
 
 Strato password. CertFlow writes it to an internal Certbot credentials file with
 `0600` permissions.
+
+### `strato_totp_devicename` and `strato_totp_secret`
+
+Required when two-factor authentication is enabled for the Strato login. Set
+both values together:
+
+- `strato_totp_devicename`: Exact name of the authenticator device registered
+  in the Strato customer login.
+- `strato_totp_secret`: Base32 setup secret shown when registering that device.
+  This is the permanent TOTP secret, not the current six-digit code.
+
+Leave both options empty when Strato 2FA is disabled. CertFlow rejects a
+configuration where only one of the two values is set.
 
 ### `propagation_seconds`
 
