@@ -6,6 +6,9 @@ zugehörigen Commits aktualisiert.
 
 ## [Unreleased]
 
+### Änderungen
+- Persistente Home-Assistant-Benachrichtigung bei fehlgeschlagenen Certbot-Läufen ergänzt.
+
 ## [0.1.4] - 2026-07-19
 
 ### Änderungen

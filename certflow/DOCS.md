@@ -120,3 +120,7 @@ mode: single
 
 If Home Assistant shows a different add-on ID, use that ID instead of
 `local_certflow`.
+
+## Failure notifications
+
+If Certbot cannot request or renew a certificate, CertFlow creates a persistent notification in Home Assistant. The notification contains the certificate name and the relevant `ERROR:` lines from Certbot. The complete output remains available in the add-on log.

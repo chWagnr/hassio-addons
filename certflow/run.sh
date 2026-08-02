@@ -143,6 +143,36 @@ copy_certificate() {
     bashio::log.info "Exported certificate '${name}' to ${destination}."
 }
 
+notify_certbot_failure() {
+    local name="$1"
+    local details="$2"
+    local payload
+
+    if [ -z "${SUPERVISOR_TOKEN:-}" ]; then
+        bashio::log.warning "Supervisor token is not available; cannot create a Home Assistant notification."
+        return
+    fi
+
+    payload="$(jq -n \
+        --arg title "CertFlow renewal failed" \
+        --arg message "Certificate '${name}' could not be renewed.\n\n${details}\n\nCheck the CertFlow add-on log for details." \
+        '{
+            title: $title,
+            message: $message,
+            notification_id: "certflow_renewal_failed"
+        }')"
+
+    if ! curl --fail --silent --show-error \
+        --request POST \
+        --header "Authorization: Bearer ${SUPERVISOR_TOKEN}" \
+        --header "Content-Type: application/json" \
+        --data "${payload}" \
+        "http://supervisor/core/api/services/persistent_notification/create" \
+        > /dev/null; then
+        bashio::log.warning "Could not create a Home Assistant notification for the Certbot failure."
+    fi
+}
+
 run_certbot_for_certificate() {
     local name="$1"
     local domains_json="$2"
@@ -153,6 +183,8 @@ run_certbot_for_certificate() {
     local domain_args=()
     local staging_args=()
     local domain
+    local certbot_output
+    local error_details
 
     validate_name "${name}"
 
@@ -171,7 +203,8 @@ run_certbot_for_certificate() {
     fi
 
     bashio::log.info "Requesting or renewing certificate '${name}'."
-    certbot certonly \
+    certbot_output="$(mktemp)"
+    if certbot certonly \
         --non-interactive \
         --agree-tos \
         --email "${email}" \
@@ -184,7 +217,19 @@ run_certbot_for_certificate() {
         --dns-strato-propagation-seconds "${propagation_seconds}" \
         --keep-until-expiring \
         "${staging_args[@]}" \
-        "${domain_args[@]}"
+        "${domain_args[@]}" \
+        2>&1 | tee "${certbot_output}"; then
+        rm -f "${certbot_output}"
+    else
+        error_details="$(grep -E '^ERROR:' "${certbot_output}" | tail -n 5 || true)"
+        if [ -z "${error_details}" ]; then
+            error_details="$(tail -n 10 "${certbot_output}")"
+        fi
+        rm -f "${certbot_output}"
+        notify_certbot_failure "${name}" "${error_details}"
+        bashio::log.fatal "Certbot failed for certificate '${name}'."
+        exit 1
+    fi
 
     copy_certificate "${name}" "${domains_json}" "${output_path}"
 }
