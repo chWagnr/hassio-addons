@@ -6,6 +6,11 @@ zugehörigen Commits aktualisiert.
 
 ## [Unreleased]
 
+## [0.1.7] - 2026-08-02
+
+### Änderungen
+- feat: add support for Strato 2FA with device name and TOTP secret ([ea0d0f8](https://github.com/chWagnr/hassio-addons/commit/ea0d0f86d7e32786b4b83314f8477f335d3b3fdb))
+
 ## [0.1.6] - 2026-08-02
 
 ### Änderungen
