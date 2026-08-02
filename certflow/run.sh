@@ -228,7 +228,12 @@ run_certbot_for_certificate() {
         rm -f "${certbot_output}"
         notify_certbot_failure "${name}" "${error_details}"
         bashio::log.fatal "Certbot failed for certificate '${name}'."
-        exit 1
+        stop_addon
+
+        # Keep the failed one-shot run alive until the Supervisor stops the
+        # container. Exiting with an error would trigger an immediate restart
+        # and repeat the same certificate request indefinitely.
+        sleep infinity
     fi
 
     copy_certificate "${name}" "${domains_json}" "${output_path}"
