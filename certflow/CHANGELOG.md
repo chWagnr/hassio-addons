@@ -6,6 +6,11 @@ zugehörigen Commits aktualisiert.
 
 ## [Unreleased]
 
+## [0.1.8] - 2026-09-07
+
+### Änderungen
+- chore(deps): update dependency certbot to v5.8.0 ([a7e7e7d](https://github.com/chWagnr/hassio-addons/commit/a7e7e7dc54ce17888fb1d411dbaa398be0a3337d))
+
 ## [0.1.7] - 2026-08-02
 
 ### Änderungen
