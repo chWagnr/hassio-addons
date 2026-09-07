@@ -6,6 +6,11 @@ zugehörigen Commits aktualisiert.
 
 ## [Unreleased]
 
+## [26.6.2] - 2026-09-07
+
+### Änderungen
+- chore(deps): update ghcr.io/papra-hq/papra docker tag to v26.6.2 ([d5125cf](https://github.com/chWagnr/hassio-addons/commit/d5125cf8b26bad86d9a95a872ceb7a5a7aeca100))
+
 ## [26.6.1] - 2026-07-19
 
 ### Änderungen
