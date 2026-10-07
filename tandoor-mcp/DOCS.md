@@ -1,7 +1,8 @@
 # Configuration
 
 1. Install Tandoor MCP from this repository in the Home Assistant app/add-on store.
-2. Create a dedicated API token in Tandoor and enter its base address and token.
+2. Create a dedicated API token in Tandoor and enter it. Leave `tandoor_url` at
+   `auto` to discover an installed Tandoor add-on, or enter a manual address.
 3. Generate a separate MCP bearer token, for example with `openssl rand -hex 32`.
 4. Save the options, start the add-on and enable its watchdog if desired.
 5. Connect your MCP client to `http://<HA-host>:3737/mcp` on a trusted network,
@@ -10,11 +11,43 @@
 
 | Option | Purpose |
 | --- | --- |
-| `tandoor_url` | Reachable Tandoor HTTP(S) origin, for example `http://tandoor-host:8080`. No `/api` suffix, subpath or embedded credentials. Tandoor 2.x required. |
+| `tandoor_url` | `auto` (default) discovers an installed Tandoor add-on. Alternatively a reachable HTTP(S) origin, for example `http://tandoor-host:8080`. No `/api` suffix, subpath or embedded credentials. Tandoor 2.x required. An empty value also means automatic discovery. |
+| `tandoor_addon` | Optional full installed add-on slug to select a specific Tandoor installation. Used only with automatic discovery. |
 | `tandoor_token` | Dedicated Tandoor API token. |
 | `mcp_token` | Separate random bearer token, 32–256 letters, digits, `_` or `-`. Required; open access is not supported. |
 | `access_mode` | `read_only`, `import` (default), or `edit`. Restart after changes. |
 | `allowed_origins` | Exact HTTP(S) browser origins, without trailing slash. Empty by default: requests with an Origin header are rejected. Native MCP clients usually omit Origin. |
+
+## Automatic Tandoor connection
+
+At startup, the add-on reads Supervisor's store inventory, selects the installed
+Tandoor app, then reads its internal hostname and container ports. It connects
+directly over the add-on network, independent of published host ports, your
+external reverse proxy or ingress. Port 80 is preferred, then 8080, then HTTPS
+443; an otherwise unambiguous single TCP port is also supported. Unknown port
+layouts and host-network installations require a manual `tandoor_url`.
+
+If multiple Tandoor apps are installed, choose one with `tandoor_addon` rather
+than guessing. This also supports a detached/local app not listed in the store.
+Discovery waits up to 60 seconds for the selected app to enter the started
+state; it never starts or modifies Tandoor itself. Restart MCP after installing
+or replacing a Tandoor add-on. The startup API probe is best effort; Tandoor
+may take longer to become ready, and subsequent tool requests can retry later.
+
+If Tandoor restricts `ALLOWED_HOSTS`, include its internal hostname in that
+list, for example `12345678-tandoor-recipes`. Find the actual name in Supervisor
+app details; it normally corresponds to the full slug with underscores replaced
+by hyphens. Keep the existing allowed hosts. A rejected hostname can cause HTTP
+400 even when the API token is correct. Alternatively use the manual address
+that already works for your installation.
+
+Only the address is discovered: the Tandoor API token must still be provided.
+The MCP token is also separate. The add-on uses the Supervisor **default** role
+and only GET `/store/info` and `/addons/<slug>/info`, with other add-on options
+redacted. It needs no manager/admin permissions and reads no Tandoor passwords,
+database files or other add-on secrets. See the
+[Supervisor access checks](https://github.com/home-assistant/supervisor/blob/main/supervisor/api/middleware/security.py)
+and [app info API](https://developers.home-assistant.io/docs/api/supervisor/endpoints/).
 
 ## Available actions
 
@@ -67,7 +100,8 @@ Accept and MCP protocol headers, and allow at least 120 seconds for requests.
 Never put either token in a URL. HTTPS to Tandoor uses normal certificate
 verification; private CAs and disabling TLS verification are not supported.
 
-No Home Assistant API, Docker access, host networking or directory mounts are
+Supervisor API access with the default role is enabled for discovery. No Home
+Assistant Core API, Docker access, host networking or directory mounts are
 required. Tokens live in Home Assistant add-on options and process memory;
 backups containing the options must be treated as sensitive. Recipe data stays
 in Tandoor and is not duplicated in this add-on. Requested recipe data reaches

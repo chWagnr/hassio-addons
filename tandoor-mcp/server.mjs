@@ -1,6 +1,7 @@
 import { readFile } from 'node:fs/promises';
 import { createServer } from 'node:http';
 import { timingSafeEqual } from 'node:crypto';
+import { resolveTandoorUrl } from './discovery.mjs';
 
 const MAX_BODY = 1024 * 1024;
 const READ_TOOLS = [
@@ -11,12 +12,18 @@ const READ_TOOLS = [
 ];
 
 export function validateOptions(options) {
+  options = { tandoor_addon: '', ...options };
   let url;
-  try { url = new URL(options.tandoor_url); } catch { throw new Error('Set a valid tandoor_url.'); }
-  if (!['http:', 'https:'].includes(url.protocol) || url.username || url.password ||
+  const auto = options.tandoor_url === '' || options.tandoor_url === 'auto';
+  if (!auto) {
+    try { url = new URL(options.tandoor_url); } catch { throw new Error('Set tandoor_url to auto or a valid HTTP(S) origin.'); }
+    if (!['http:', 'https:'].includes(url.protocol) || url.username || url.password ||
       url.search || url.hash || url.pathname !== '/') {
-    throw new Error('tandoor_url must be an HTTP(S) origin without credentials, path, query or fragment.');
+      throw new Error('tandoor_url must be an HTTP(S) origin without credentials, path, query or fragment.');
+    }
   }
+  if (typeof options.tandoor_addon !== 'string' || (options.tandoor_addon &&
+      !/^[a-zA-Z0-9][a-zA-Z0-9_-]*$/.test(options.tandoor_addon))) throw new Error('Invalid tandoor_addon slug.');
   if (typeof options.tandoor_token !== 'string' || !options.tandoor_token.trim() ||
       /\s/.test(options.tandoor_token)) throw new Error('Set a nonempty tandoor_token without whitespace.');
   if (typeof options.mcp_token !== 'string' || !/^[A-Za-z0-9_-]{32,256}$/.test(options.mcp_token)) {
@@ -29,7 +36,7 @@ export function validateOptions(options) {
       return !['http:', 'https:'].includes(parsed.protocol) || parsed.origin !== origin;
     } catch { return true; }
   })) throw new Error('allowed_origins must contain exact HTTP(S) origins, without trailing slashes.');
-  return { ...options, tandoor_url: url.origin };
+  return { ...options, tandoor_url: auto ? 'auto' : url.origin };
 }
 
 function rpcError(res, status, message, headers = {}) {
@@ -41,6 +48,7 @@ function rpcError(res, status, message, headers = {}) {
 // requests cannot share protocol state or change another client's tool list.
 export async function createAddonServer(rawOptions) {
   const options = validateOptions(rawOptions);
+  options.tandoor_url = await resolveTandoorUrl(options);
   const tools = [...READ_TOOLS];
   if (options.access_mode !== 'read_only') tools.push('create_recipe', 'import_recipe_from_url');
   if (options.access_mode === 'edit') tools.push('update_recipe');
@@ -64,7 +72,7 @@ export async function createAddonServer(rawOptions) {
   const { checkTandoorVersion } = await import('@cliftonz/tandoor-recipes-mcp/build/lib/version-check.js');
   const client = new TandoorClient({ url: options.tandoor_url, token: options.tandoor_token });
   const versionCheck = await checkTandoorVersion(client);
-  if (versionCheck.status !== 'ok') console.error('Tandoor compatibility probe inconclusive or unsupported; check the URL and API token.');
+  if (versionCheck.status !== 'ok') console.error('Tandoor compatibility probe inconclusive or unsupported; check the URL, API token and Tandoor ALLOWED_HOSTS (include the internal hostname when using automatic discovery).');
   const expectedAuth = Buffer.from(`Bearer ${options.mcp_token}`);
   let active = 0;
   let draining = false;
@@ -106,7 +114,7 @@ export async function createAddonServer(rawOptions) {
       try { body = JSON.parse(Buffer.concat(chunks).toString('utf8')); }
       catch { return rpcError(res, 400, 'Invalid JSON'); }
       if (res.destroyed) return;
-      mcp = new McpServer({ name: 'tandoor-mcp-addon', version: '0.1.0' }, {
+      mcp = new McpServer({ name: 'tandoor-mcp-addon', version: '0.2.0' }, {
         instructions: `Tandoor recipe access (${options.access_mode}). Check for duplicates before creating recipes. Text and photos can be transcribed into create_recipe; URLs use import_recipe_from_url.`,
       });
       registerRecipeTools(mcp, client);

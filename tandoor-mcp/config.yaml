@@ -1,5 +1,5 @@
 name: Tandoor MCP
-version: "0.1.0"
+version: "0.2.0"
 slug: tandoor_mcp
 description: Authenticated MCP access to Tandoor recipes, with optional recipe import and editing.
 url: https://github.com/chWagnr/hassio-addons/tree/main/tandoor-mcp
@@ -10,6 +10,8 @@ arch:
 startup: application
 boot: auto
 init: false
+hassio_api: true
+hassio_role: default
 timeout: 20
 ports:
   3737/tcp: 3737
@@ -17,13 +19,15 @@ ports_description:
   3737/tcp: Streamable HTTP MCP endpoint (use HTTPS through a reverse proxy)
 watchdog: http://[HOST]:[PORT:3737]/healthz
 options:
-  tandoor_url: ""
+  tandoor_url: auto
+  tandoor_addon: ""
   tandoor_token: ""
   mcp_token: ""
   access_mode: import
   allowed_origins: []
 schema:
-  tandoor_url: url
+  tandoor_url: str
+  tandoor_addon: str?
   tandoor_token: password
   mcp_token: password
   access_mode: list(read_only|import|edit)
