@@ -4,6 +4,11 @@
 
 ## [0.3.0] - 2026-10-07
 
+### Änderungen
+- Versionsupdate und Wartung.
+
+## [0.3.0] - 2026-10-07
+
 - Add one-time Tandoor login through a protected Home Assistant Ingress UI.
 - Store only the returned token with owner-only permissions, bound to its origin.
 - Keep manual API token configuration and activate MCP without a restart after login.
