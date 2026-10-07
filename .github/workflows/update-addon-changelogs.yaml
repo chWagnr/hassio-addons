@@ -7,6 +7,7 @@ on:
     paths:
       - "certflow/config.yaml"
       - "papra/config.yaml"
+      - "tandoor-mcp/config.yaml"
   workflow_dispatch:
 
 permissions:
@@ -34,12 +35,12 @@ jobs:
           set -euo pipefail
 
           if [ "${EVENT_NAME}" = "workflow_dispatch" ]; then
-            changed_files=$'certflow/config.yaml\npapra/config.yaml'
+            changed_files=$'certflow/config.yaml\npapra/config.yaml\ntandoor-mcp/config.yaml'
           else
             changed_files="$(git diff --name-only "${BEFORE_SHA}" "${GITHUB_SHA}")"
           fi
 
-          for addon in certflow papra; do
+          for addon in certflow papra tandoor-mcp; do
             config_file="${addon}/config.yaml"
             if ! printf '%s\n' "${changed_files}" | grep -qx "${config_file}"; then
               continue
@@ -58,6 +59,7 @@ jobs:
             case "${addon}" in
               certflow) display_name="CertFlow" ;;
               papra) display_name="Papra" ;;
+              tandoor-mcp) display_name="Tandoor MCP" ;;
             esac
             changelog_file="${addon}/CHANGELOG.md"
 
