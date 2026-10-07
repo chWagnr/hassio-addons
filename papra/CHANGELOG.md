@@ -1,8 +1,8 @@
 # Changelog
 
 Alle bemerkenswerten Änderungen an Papra werden in dieser Datei festgehalten.
-Der Changelog wird bei einer Änderung der Add-on-Version automatisch aus den
-zugehörigen Commits aktualisiert.
+Änderungsnotizen werden zusammen mit dem Versionswechsel gepflegt.
+Ein CI-Check prüft, dass die aktuelle Version genau einen ausgefüllten Eintrag hat.
 
 ## [Unreleased]
 

@@ -1,22 +1,22 @@
-name: Update add-on changelogs
+name: Check add-on changelogs
 
 on:
   push:
     branches:
       - main
     paths:
-      - "certflow/config.yaml"
-      - "papra/config.yaml"
-      - "tandoor-mcp/config.yaml"
+      - "*/config.yaml"
+      - "*/CHANGELOG.md"
+      - ".github/workflows/update-addon-changelogs.yaml"
+  pull_request:
+    paths:
+      - "*/config.yaml"
+      - "*/CHANGELOG.md"
+      - ".github/workflows/update-addon-changelogs.yaml"
   workflow_dispatch:
 
 permissions:
-  contents: write
-  pull-requests: write
-
-concurrency:
-  group: addon-changelog-${{ github.ref }}
-  cancel-in-progress: false
+  contents: read
 
 jobs:
   changelog:
@@ -27,127 +27,59 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Create changelog entries
+      - name: Validate release notes
         env:
-          BEFORE_SHA: ${{ github.event.before }}
+          BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.before }}
           EVENT_NAME: ${{ github.event_name }}
         run: |
-          set -euo pipefail
+          python3 - <<'PY'
+          import os
+          import re
+          import subprocess
+          from pathlib import Path
 
-          if [ "${EVENT_NAME}" = "workflow_dispatch" ]; then
-            changed_files=$'certflow/config.yaml\npapra/config.yaml\ntandoor-mcp/config.yaml'
-          else
-            changed_files="$(git diff --name-only "${BEFORE_SHA}" "${GITHUB_SHA}")"
-          fi
-
-          for addon in certflow papra tandoor-mcp; do
-            config_file="${addon}/config.yaml"
-            if ! printf '%s\n' "${changed_files}" | grep -qx "${config_file}"; then
-              continue
-            fi
-            if [ "${EVENT_NAME}" != "workflow_dispatch" ] && ! git diff --unified=0 "${BEFORE_SHA}" "${GITHUB_SHA}" -- "${config_file}" | grep -qE '^\+version: '; then
-              echo "${config_file} changed without a version update; skipping."
-              continue
-            fi
-
-            version="$(sed -n 's/^version: "\(.*\)"$/\1/p' "${config_file}")"
-            if [ -z "${version}" ]; then
-              echo "Unable to read the version from ${config_file}." >&2
-              exit 1
-            fi
-
-            case "${addon}" in
-              certflow) display_name="CertFlow" ;;
-              papra) display_name="Papra" ;;
-              tandoor-mcp) display_name="Tandoor MCP" ;;
-            esac
-            changelog_file="${addon}/CHANGELOG.md"
-
-            # Start after the version currently recorded in this add-on's
-            # changelog, so changes are listed exactly once.
-            previous_version="$(sed -n '/^## \[Unreleased\]$/d; s/^## \[\([^]]*\)\].*/\1/p' "${changelog_file}" | head -n 1)"
-            baseline_commit=""
-            if [ -n "${previous_version}" ]; then
-              # -G also matches the removal of the previous version in the
-              # current version-bump commit. Select the commit that added it,
-              # so the current bump remains part of the changelog range.
-              baseline_commit="$(
-                git log -G "^version: \"${previous_version}\"$" --format=%H -- "${config_file}" |
-                  while read -r candidate; do
-                    if git show --format= --unified=0 "${candidate}" -- "${config_file}" | grep -Fqx "+version: \"${previous_version}\""; then
-                      echo "${candidate}"
-                      break
-                    fi
-                  done
-              )"
-            fi
-            if [ "${EVENT_NAME}" = "workflow_dispatch" ] && [ "${version}" = "${previous_version}" ]; then
-              echo "${addon} changelog is already current; skipping."
-              continue
-            fi
-            commit_range="${baseline_commit:+${baseline_commit}..}${GITHUB_SHA}"
-
-            notes_file="$(mktemp)"
-            {
-              echo "## ${display_name} ${version}"
-              echo
-              echo "### Änderungen"
-              git log --no-merges \
-                --format="- %s ([%h](https://github.com/${GITHUB_REPOSITORY}/commit/%H))" \
-                "${commit_range}" -- "${addon}" ":(exclude)${changelog_file}"
-            } > "${notes_file}"
-
-            if ! grep -q '^-' "${notes_file}"; then
-              echo "- Versionsupdate und Wartung." >> "${notes_file}"
-            fi
-
-            changelog_entry="$(mktemp)"
-            {
-              echo "## [${version}] - $(date -u +%F)"
-              echo
-              sed '1,2d' "${notes_file}"
-              echo
-            } > "${changelog_entry}"
-
-            updated_changelog="$(mktemp)"
-            awk -v entry="${changelog_entry}" '
-              /^## \[Unreleased\]$/ {
-                print
-                print ""
-                while ((getline line < entry) > 0) print line
-                close(entry)
-                in_unreleased = 1
-                next
-              }
-              in_unreleased && /^## \[/ { in_unreleased = 0 }
-              !in_unreleased { print }
-            ' "${changelog_file}" > "${updated_changelog}"
-            mv "${updated_changelog}" "${changelog_file}"
-
-          done
-
-      - name: Create changelog pull request
-        id: changelog-pr
-        uses: peter-evans/create-pull-request@v8
-        with:
-          branch: automation/addon-changelog
-          delete-branch: true
-          sign-commits: true
-          commit-message: "docs: update add-on changelogs"
-          title: "docs: update add-on changelogs"
-          body: "Automatisch aus Änderungen an den Add-on-Versionen generiert."
-
-      - name: Merge changelog pull request
-        if: steps.changelog-pr.outputs.pull-request-number != ''
-        env:
-          GH_TOKEN: ${{ github.token }}
-          PR_NUMBER: ${{ steps.changelog-pr.outputs.pull-request-number }}
-        run: |
-          set -euo pipefail
-
-          merge_state="$(gh pr view "${PR_NUMBER}" --json mergeStateStatus --jq '.mergeStateStatus')"
-          if [ "${merge_state}" = "CLEAN" ]; then
-            gh pr merge "${PR_NUMBER}" --squash --delete-branch
-          else
-            gh pr merge "${PR_NUMBER}" --auto --squash --delete-branch
-          fi
+          base = os.environ.get('BASE_SHA', '')
+          check_all = os.environ['EVENT_NAME'] == 'workflow_dispatch' or not base or set(base) == {'0'}
+          failed = False
+          for addon in ('certflow', 'papra', 'tandoor-mcp'):
+              config = Path(addon, 'config.yaml')
+              match = re.search(r'^version:\s*"([^"\n]+)"\s*$', config.read_text(), re.MULTILINE)
+              if not match:
+                  print(f'::error file={config}::Cannot read add-on version.')
+                  failed = True
+                  continue
+              version = match[1]
+              changelog = Path(addon, 'CHANGELOG.md')
+              if not check_all:
+                  previous = subprocess.run(['git', 'show', f'{base}:{config}'], capture_output=True, text=True)
+                  previous_version = re.search(r'^version:\s*"([^"\n]+)"\s*$', previous.stdout, re.MULTILINE)
+                  notes_changed = subprocess.run(['git', 'diff', '--quiet', base, 'HEAD', '--', str(changelog)], check=False)
+                  if notes_changed.returncode not in (0, 1):
+                      raise SystemExit('Cannot compare changelog against base commit.')
+                  if previous_version and previous_version[1] == version and notes_changed.returncode == 0:
+                      print(f'{addon}: version and release notes unchanged; skipping.')
+                      continue
+              if not changelog.is_file():
+                  print(f'::error file={changelog}::Missing release notes for {version}.')
+                  failed = True
+                  continue
+              text = changelog.read_text()
+              headings = list(re.finditer(r'^##\s+\[([^\]\n]+)\][^\n]*$', text, re.MULTILINE))
+              entries = [i for i, heading in enumerate(headings) if heading[1] == version]
+              if len(entries) != 1:
+                  print(f'::error file={changelog}::Expected exactly one entry for {version}; found {len(entries)}.')
+                  failed = True
+                  continue
+              index = entries[0]
+              start = headings[index].end()
+              end = headings[index + 1].start() if index + 1 < len(headings) else len(text)
+              lines = [line.strip() for line in text[start:end].splitlines()]
+              meaningful = [line for line in lines if line and not line.startswith('#')
+                            and line not in ('- Versionsupdate und Wartung.', '- TODO', 'TODO', '- TBD', 'TBD')]
+              if not meaningful:
+                  print(f'::error file={changelog}::Add meaningful release notes for {version}; headings and placeholders are insufficient.')
+                  failed = True
+                  continue
+              print(f'{addon}: release notes for {version} valid.')
+          raise SystemExit(1 if failed else 0)
+          PY
