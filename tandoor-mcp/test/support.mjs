@@ -38,7 +38,8 @@ export function exercise(mode) {
       tandoor_token: 'test-api-token', mcp_token: 'x'.repeat(64),
       access_mode: mode, allowed_origins: ['https://client.example.com'],
     };
-    assert.throws(() => validateOptions({ ...options, mcp_token: '' }));
+    assert.equal(validateOptions({ ...options, mcp_token: '' }).mcp_token, '');
+    assert.throws(() => validateOptions({ ...options, mcp_token: 'short' }));
     assert.throws(() => validateOptions({ ...options, tandoor_url: `${options.tandoor_url}/api` }));
     const addon = await createAddonServer(options);
     addon.http.listen(0, '127.0.0.1');

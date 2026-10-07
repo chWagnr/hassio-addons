@@ -14,18 +14,18 @@ export async function loadToken(path, url) {
   }
 }
 
-export async function saveToken(path, url, token) {
+async function saveSecret(path, value) {
   const temporary = join(dirname(path), `.token-${randomBytes(16).toString('hex')}`);
   let file;
   try {
     file = await open(temporary, 'wx', 0o600);
-    await file.writeFile(JSON.stringify({ url, token }));
+    await file.writeFile(JSON.stringify(value));
     await file.sync();
     await file.close();
     file = undefined;
     await rename(temporary, path);
   } catch {
-    throw new Error('Cannot save Tandoor token.');
+    throw new Error('Cannot save token file.');
   } finally {
     await file?.close().catch(() => {});
     await unlink(temporary).catch(() => {});
@@ -52,4 +52,22 @@ export async function login(url, username, password) {
     if (!validToken(data.token)) throw new Error();
     return data.token;
   } catch { throw new Error('Tandoor returned an invalid token response.'); }
+}
+
+export async function saveToken(path, url, token) {
+  await saveSecret(path, { url, token });
+}
+
+export async function resolveMcpToken(configured, path) {
+  if (configured) return configured;
+  try {
+    const saved = JSON.parse(await readFile(path, 'utf8'));
+    if (typeof saved.token !== 'string' || !/^[A-Za-z0-9_-]{32,256}$/.test(saved.token)) throw new Error();
+    return saved.token;
+  } catch (error) {
+    if (error.code !== 'ENOENT') throw new Error('Cannot read stored MCP token.');
+  }
+  const token = randomBytes(32).toString('hex');
+  await saveSecret(path, { token });
+  return token;
 }

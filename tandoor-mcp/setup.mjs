@@ -6,12 +6,14 @@ const page = `<!doctype html><html lang="en"><meta charset="utf-8"><meta name="v
 <h1>Tandoor MCP</h1><p id="status" role="status">Loading connection status…</p>
 <p>Sign in once to Tandoor. Only the API token is saved; your password is not retained. Tandoor may reuse an existing token.</p>
 <form><label>Username<input name="username" autocomplete="username" required maxlength="1024"></label><label>Password<input name="password" type="password" autocomplete="current-password" required maxlength="4096"></label><button>Sign in</button></form>
+<h2>MCP client access</h2><p>Copy this separate access token into your MCP client settings.</p><button id="reveal" type="button">Show MCP token</button><input id="mcp-token" type="password" readonly aria-label="MCP access token" autocomplete="off" hidden>
 <script src="setup.js"></script></html>`;
 const script = `const form=document.querySelector('form'),status=document.querySelector('#status');let csrf;
 fetch('status').then(r=>r.json()).then(data=>{csrf=data.csrf;status.textContent=data.message;form.hidden=data.manual;}).catch(()=>{status.textContent='Cannot load connection status.';});
+document.querySelector('#reveal').addEventListener('click',async()=>{const input=document.querySelector('#mcp-token'),button=document.querySelector('#reveal');if(!input.hidden){input.value='';input.hidden=true;button.textContent='Show MCP token';return;}try{const response=await fetch('mcp-token',{method:'POST',headers:{'X-Setup-CSRF':csrf}});if(!response.ok)throw new Error();const data=await response.json();input.value=data.token;input.type='text';input.hidden=false;input.select();button.textContent='Hide MCP token';}catch{status.textContent='Cannot retrieve MCP token. Reload the setup page.';}});
 form.addEventListener('submit',async event=>{event.preventDefault();const button=form.querySelector('button');button.disabled=true;const username=form.username.value,password=form.password.value;form.password.value='';try{const response=await fetch('login',{method:'POST',headers:{'Content-Type':'application/json','X-Setup-CSRF':csrf},body:JSON.stringify({username,password})});const data=await response.json();status.textContent=data.message;if(response.ok)form.reset();}catch{status.textContent='Connection failed. Check the connection status before retrying.';}finally{button.disabled=false;}});`;
 
-export function createSetupServer({ status, authenticate, isIngress = address => ['172.30.32.2', '::ffff:172.30.32.2'].includes(address) }) {
+export function createSetupServer({ status, authenticate, getMcpToken, isIngress = address => ['172.30.32.2', '::ffff:172.30.32.2'].includes(address) }) {
   const csrf = randomBytes(32).toString('hex');
   let busy = false;
   const server = createServer(async (req, res) => {
@@ -27,6 +29,12 @@ export function createSetupServer({ status, authenticate, isIngress = address =>
     if (req.method === 'GET' && req.url === '/status') {
       res.writeHead(200, { 'Content-Type': 'application/json' });
       return res.end(JSON.stringify({ ...status(), csrf }));
+    }
+    if (req.url === '/mcp-token') {
+      if (req.method !== 'POST') return send(405, 'Use POST.');
+      if (req.headers['x-setup-csrf'] !== csrf) return send(403, 'Reload the setup page.');
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      return res.end(JSON.stringify({ token: getMcpToken() }));
     }
     if (req.url !== '/login') return send(404, 'Not found.');
     if (req.method !== 'POST') return send(405, 'Use POST.');

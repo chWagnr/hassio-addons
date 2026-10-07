@@ -5,7 +5,7 @@ import { once } from 'node:events';
 import { mkdtemp, readFile, stat, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { login, loadToken } from '../auth.mjs';
+import { login, loadToken, resolveMcpToken } from '../auth.mjs';
 import { createAddonServer } from '../server.mjs';
 import { createSetupServer } from '../setup.mjs';
 async function listen(server, t) {
@@ -73,4 +73,44 @@ test('setup rejects invalid bodies and oversized requests', async t => {
     assert.equal((await fetch(`${base}/login`, { method: 'POST', headers, body })).status, expected);
   }
   assert.equal(calls, 0);
+});
+
+test('automatic MCP token persists, allows overrides and rejects corrupt storage', async t => {
+  const directory = await mkdtemp(join(tmpdir(), 'mcp-secret-'));
+  t.after(() => rm(directory, { recursive: true, force: true }));
+  const path = join(directory, 'mcp-token.json');
+  const token = await resolveMcpToken('', path);
+  assert.match(token, /^[a-f0-9]{64}$/);
+  assert.equal((await stat(path)).mode & 0o777, 0o600);
+  assert.deepEqual(JSON.parse(await readFile(path)), { token });
+  assert.equal(await resolveMcpToken('', path), token);
+  assert.equal(await resolveMcpToken('z'.repeat(64), path), 'z'.repeat(64));
+  assert.equal(await resolveMcpToken('', path), token);
+  const badPath = join(directory, 'bad.json');
+  await (await import('node:fs/promises')).writeFile(badPath, '{}');
+  await assert.rejects(resolveMcpToken('', badPath), /Cannot read stored MCP token/);
+});
+
+test('generated MCP token is revealed only through protected ingress and authenticates requests', async t => {
+  const directory = await mkdtemp(join(tmpdir(), 'mcp-auto-'));
+  t.after(() => rm(directory, { recursive: true, force: true }));
+  const fake = await listen(createServer((req, res) => { res.setHeader('Content-Type', 'application/json'); res.end('{"version":"2.6.15"}'); }), t);
+  const options = { tandoor_url: fake, tandoor_token: 'api-token', mcp_token: '', access_mode: 'read_only', allowed_origins: [] };
+  const paths = { mcpTokenPath: join(directory, 'mcp.json'), isIngress: () => true };
+  const addon = await createAddonServer(options, paths); t.after(() => addon.stop());
+  const setup = await listen(addon.setup, t), base = await listen(addon.http, t);
+  const state = await (await fetch(`${setup}/status`)).json();
+  assert.equal(state.token, undefined);
+  assert.equal((await fetch(`${setup}/mcp-token`)).status, 405);
+  assert.equal((await fetch(`${setup}/mcp-token`, { method: 'POST' })).status, 403);
+  const response = await fetch(`${setup}/mcp-token`, { method: 'POST', headers: { 'X-Setup-CSRF': state.csrf } });
+  assert.equal(response.headers.get('Cache-Control'), 'no-store');
+  const { token } = await response.json(); assert.match(token, /^[a-f0-9]{64}$/);
+  assert.equal((await fetch(`${base}/mcp`)).status, 401);
+  assert.equal((await fetch(`${base}/mcp`, { headers: { Authorization: `Bearer ${token}` } })).status, 405);
+  const restarted = await createAddonServer(options, { ...paths, isIngress: undefined }); t.after(() => restarted.stop());
+  const next = await listen(restarted.http, t), direct = await listen(restarted.setup, t);
+  assert.equal((await fetch(`${next}/mcp`, { headers: { Authorization: `Bearer ${token}` } })).status, 405);
+  assert.equal((await fetch(`${direct}/mcp-token`, { method: 'POST', headers: { 'X-Setup-CSRF': state.csrf, 'X-Forwarded-For': '172.30.32.2' } })).status, 403);
+  assert.equal((await fetch(`${base}/mcp-token`, { method: 'POST', headers: { Authorization: `Bearer ${token}` } })).status, 404);
 });

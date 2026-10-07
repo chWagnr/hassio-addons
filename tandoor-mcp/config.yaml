@@ -1,5 +1,5 @@
 name: Tandoor MCP
-version: "0.3.0"
+version: "0.4.0"
 slug: tandoor_mcp
 description: Authenticated MCP access to Tandoor recipes, with optional recipe import and editing.
 url: https://github.com/chWagnr/hassio-addons/tree/main/tandoor-mcp

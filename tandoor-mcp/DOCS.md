@@ -4,11 +4,13 @@
 2. Leave `tandoor_token` empty for one-time login. Leave `tandoor_url` at
    `auto` to discover an installed Tandoor add-on, or enter a manual address.
    Alternatively enter an existing Tandoor API token in `tandoor_token`.
-3. Generate a separate MCP bearer token, for example with `openssl rand -hex 32`.
+3. Leave `mcp_token` empty to generate a separate MCP bearer token at first start.
+   Alternatively provide your own random token.
 4. Save the options, start the add-on and enable its watchdog if desired.
 5. Open the add-on web UI and sign in with your Tandoor username and password
    once (not needed when `tandoor_token` is set).
-6. Connect your MCP client to `http://<HA-host>:3737/mcp` on a trusted network,
+6. Click **Show MCP token** in the web UI and copy the token into your client.
+7. Connect your MCP client to `http://<HA-host>:3737/mcp` on a trusted network,
    or use your HTTPS reverse proxy endpoint. The host port can be changed in
    the add-on's Network settings.
 
@@ -17,7 +19,7 @@
 | `tandoor_url` | `auto` (default) discovers an installed Tandoor add-on. Alternatively a reachable HTTP(S) origin, for example `http://tandoor-host:8080`. No `/api` suffix, subpath or embedded credentials. Tandoor 2.x required. An empty value also means automatic discovery. |
 | `tandoor_addon` | Optional full installed add-on slug to select a specific Tandoor installation. Used only with automatic discovery. |
 | `tandoor_token` | Optional existing Tandoor API token. When empty, use one-time login in the web UI. A configured token takes precedence over a saved login token. |
-| `mcp_token` | Separate random bearer token, 32–256 letters, digits, `_` or `-`. Required; open access is not supported. |
+| `mcp_token` | Optional bearer token, 32–256 letters, digits, `_` or `-`. Empty generates a random 256-bit token on first start; authentication is always required. |
 | `access_mode` | `read_only`, `import` (default), or `edit`. Restart after changes. |
 | `allowed_origins` | Exact HTTP(S) browser origins, without trailing slash. Empty by default: requests with an Origin header are rejected. Native MCP clients usually omit Origin. |
 
@@ -130,7 +132,12 @@ verification; private CAs and disabling TLS verification are not supported.
 
 Supervisor API access with the default role is enabled for discovery. No Home
 Assistant Core API, Docker access, host networking or directory mounts are
-required. The MCP token and any manually configured Tandoor token live in add-on options.
+required. Manually configured MCP and Tandoor tokens live in add-on options.
+An automatically generated MCP token lives in `/data/mcp-token.json`, with
+owner-only permissions (`0600`). It survives restarts and updates. Reveal it
+using **Show MCP token** in the Ingress web UI; it is never logged or returned
+through the public MCP endpoint. A configured `mcp_token` takes precedence;
+clearing it restores the saved generated token.
 A login token lives in `/data/tandoor-token.json` with owner-only permissions
 (`0600`) and in process memory. These are not encrypted at rest; Home Assistant
 backups containing options or add-on data must be treated as sensitive. Recipe data stays
@@ -138,6 +145,7 @@ in Tandoor and is not duplicated in this add-on. Requested recipe data reaches
 your MCP client's context. Payload/debug logging is disabled.
 
 Use Home Assistant backups for recovery. Rotate the API token in Tandoor and
-the bearer token in add-on options/client settings, then restart the add-on.
+the bearer token by setting a new `mcp_token` in add-on options and updating
+client settings, then restart the add-on.
 Stopping the add-on allows up to ten seconds for requests to drain; do not
 blindly retry interrupted write requests without checking the resulting recipe.

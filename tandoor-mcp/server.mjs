@@ -1,7 +1,7 @@
 import { readFile } from 'node:fs/promises';
 import { createServer } from 'node:http';
 import { timingSafeEqual } from 'node:crypto';
-import { loadToken, saveToken, login, validToken } from './auth.mjs';
+import { loadToken, saveToken, login, validToken, resolveMcpToken } from './auth.mjs';
 import { createSetupServer } from './setup.mjs';
 import { resolveTandoorUrl } from './discovery.mjs';
 
@@ -14,7 +14,7 @@ const READ_TOOLS = [
 ];
 
 export function validateOptions(options) {
-  options = { tandoor_addon: '', tandoor_token: '', ...options };
+  options = { tandoor_addon: '', tandoor_token: '', mcp_token: '', ...options };
   let url;
   const auto = options.tandoor_url === '' || options.tandoor_url === 'auto';
   if (!auto) {
@@ -27,8 +27,8 @@ export function validateOptions(options) {
   if (typeof options.tandoor_addon !== 'string' || (options.tandoor_addon &&
       !/^[a-zA-Z0-9][a-zA-Z0-9_-]*$/.test(options.tandoor_addon))) throw new Error('Invalid tandoor_addon slug.');
   if (typeof options.tandoor_token !== 'string' || (options.tandoor_token && !validToken(options.tandoor_token))) throw new Error('Invalid tandoor_token.');
-  if (typeof options.mcp_token !== 'string' || !/^[A-Za-z0-9_-]{32,256}$/.test(options.mcp_token)) {
-    throw new Error('mcp_token must contain 32–256 letters, digits, underscores or hyphens.');
+  if (typeof options.mcp_token !== 'string' || (options.mcp_token && !/^[A-Za-z0-9_-]{32,256}$/.test(options.mcp_token))) {
+    throw new Error('mcp_token must be empty or contain 32–256 letters, digits, underscores or hyphens.');
   }
   if (!['read_only', 'import', 'edit'].includes(options.access_mode)) throw new Error('Invalid access_mode.');
   if (!Array.isArray(options.allowed_origins) || options.allowed_origins.some(origin => {
@@ -47,7 +47,7 @@ function rpcError(res, status, message, headers = {}) {
 
 // Each POST gets its own stateless server/transport. Clients and concurrent
 // requests cannot share protocol state or change another client's tool list.
-export async function createAddonServer(rawOptions, { tokenPath = '/data/tandoor-token.json', isIngress } = {}) {
+export async function createAddonServer(rawOptions, { tokenPath = '/data/tandoor-token.json', mcpTokenPath = '/data/mcp-token.json', isIngress } = {}) {
   const options = validateOptions(rawOptions);
   options.tandoor_url = await resolveTandoorUrl(options);
   const tools = [...READ_TOOLS];
@@ -75,12 +75,14 @@ export async function createAddonServer(rawOptions, { tokenPath = '/data/tandoor
   let client = token ? new TandoorClient({ url: options.tandoor_url, token }) : null;
   let versionCheck = client ? await checkTandoorVersion(client) : { status: 'unknown' };
   if (client && versionCheck.status !== 'ok') console.error('Tandoor compatibility probe inconclusive or unsupported; check the URL, API token and Tandoor ALLOWED_HOSTS (include the internal hostname when using automatic discovery).');
-  const expectedAuth = Buffer.from(`Bearer ${options.mcp_token}`);
+  const mcpToken = await resolveMcpToken(options.mcp_token, mcpTokenPath);
+  const expectedAuth = Buffer.from(`Bearer ${mcpToken}`);
   let active = 0;
   let draining = false;
 
   const setup = createSetupServer({
     isIngress,
+    getMcpToken: () => mcpToken,
     status: () => ({ manual: Boolean(options.tandoor_token), message: options.tandoor_token ? 'Using the API token from add-on options.' : token ? 'Connected using a saved token. Sign in again to replace it.' : 'Sign in to connect Tandoor.' }),
     authenticate: async (username, password) => {
       if (draining) throw new Error('Shutting down.');
@@ -135,7 +137,7 @@ export async function createAddonServer(rawOptions, { tokenPath = '/data/tandoor
       try { body = JSON.parse(Buffer.concat(chunks).toString('utf8')); }
       catch { return rpcError(res, 400, 'Invalid JSON'); }
       if (res.destroyed) return;
-      mcp = new McpServer({ name: 'tandoor-mcp-addon', version: '0.3.0' }, {
+      mcp = new McpServer({ name: 'tandoor-mcp-addon', version: '0.4.0' }, {
         instructions: `Tandoor recipe access (${options.access_mode}). Check for duplicates before creating recipes. Text and photos can be transcribed into create_recipe; URLs use import_recipe_from_url.`,
       });
       registerRecipeTools(mcp, requestClient);
