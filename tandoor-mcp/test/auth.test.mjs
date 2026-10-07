@@ -114,3 +114,38 @@ test('generated MCP token is revealed only through protected ingress and authent
   assert.equal((await fetch(`${direct}/mcp-token`, { method: 'POST', headers: { 'X-Setup-CSRF': state.csrf, 'X-Forwarded-For': '172.30.32.2' } })).status, 403);
   assert.equal((await fetch(`${base}/mcp-token`, { method: 'POST', headers: { Authorization: `Bearer ${token}` } })).status, 404);
 });
+
+test('login UI reports progress, success, rejection and connection failure', async t => {
+  const { runInNewContext } = await import('node:vm');
+  const base = await listen(createSetupServer({ isIngress: () => true, status: () => ({}), authenticate: async () => {} }), t);
+  const script = await (await fetch(`${base}/setup.js`)).text();
+  const html = await (await fetch(base)).text();
+  assert(html.includes('[hidden]{display:none!important}'));
+  for (const outcome of ['success', 'rejected', 'network']) {
+    const button = { disabled: true }, status = {}, feedback = { hidden: true, dataset: {}, scrollIntoView() {} };
+    const username = { value: 'user' }, password = { value: 'private-password' };
+    let handler, resets = 0, finish;
+    const form = { querySelector: () => button, elements: { namedItem: name => name === 'username' ? username : password }, reset: () => { resets++; }, addEventListener: (name, callback) => { handler = callback; } };
+    const document = { querySelector: selector => ({ form, '#status': status, '#login-feedback': feedback, '#reveal': { addEventListener() {} } })[selector] };
+    const fetchImpl = async (path, options) => {
+      if (path === 'status') return { json: async () => ({ csrf: 'csrf', manual: false, message: 'Sign in.' }) };
+      assert.equal(JSON.parse(options.body).password, 'private-password');
+      assert.equal(password.value, '');
+      await new Promise(resolve => { finish = resolve; });
+      if (outcome === 'network') throw new Error();
+      return { ok: outcome === 'success', json: async () => ({ message: outcome === 'success' ? 'Token saved.' : 'Login failed.' }) };
+    };
+    runInNewContext(script, { document, fetch: fetchImpl });
+    await new Promise(resolve => setImmediate(resolve));
+    assert.equal(button.disabled, false);
+    const submitted = handler({ preventDefault() {} });
+    assert.equal(feedback.dataset.state, 'pending');
+    assert.equal(button.disabled, true);
+    finish(); await submitted;
+    assert.equal(button.disabled, false);
+    assert.equal(feedback.hidden, false);
+    assert.equal(feedback.dataset.state, outcome === 'success' ? 'success' : 'error');
+    assert.equal(resets, outcome === 'success' ? 1 : 0);
+    if (outcome === 'success') assert.equal(status.textContent, 'Connected using a saved Tandoor token.');
+  }
+});

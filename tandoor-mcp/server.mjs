@@ -1,3 +1,4 @@
+import { logInfo, logError } from './log.mjs';
 import { readFile } from 'node:fs/promises';
 import { createServer } from 'node:http';
 import { timingSafeEqual } from 'node:crypto';
@@ -74,7 +75,7 @@ export async function createAddonServer(rawOptions, { tokenPath = '/data/tandoor
   let token = options.tandoor_token || await loadToken(tokenPath, options.tandoor_url);
   let client = token ? new TandoorClient({ url: options.tandoor_url, token }) : null;
   let versionCheck = client ? await checkTandoorVersion(client) : { status: 'unknown' };
-  if (client && versionCheck.status !== 'ok') console.error('Tandoor compatibility probe inconclusive or unsupported; check the URL, API token and Tandoor ALLOWED_HOSTS (include the internal hostname when using automatic discovery).');
+  if (client && versionCheck.status !== 'ok') logError('Tandoor compatibility probe inconclusive or unsupported; check the URL, API token and Tandoor ALLOWED_HOSTS (include the internal hostname when using automatic discovery).');
   const mcpToken = await resolveMcpToken(options.mcp_token, mcpTokenPath);
   const expectedAuth = Buffer.from(`Bearer ${mcpToken}`);
   let active = 0;
@@ -94,6 +95,7 @@ export async function createAddonServer(rawOptions, { tokenPath = '/data/tandoor
       token = nextToken;
       client = nextClient;
       versionCheck = nextVersion;
+      logInfo('Tandoor login successful; API token saved and active. Password not retained.');
     },
   });
 
@@ -137,7 +139,7 @@ export async function createAddonServer(rawOptions, { tokenPath = '/data/tandoor
       try { body = JSON.parse(Buffer.concat(chunks).toString('utf8')); }
       catch { return rpcError(res, 400, 'Invalid JSON'); }
       if (res.destroyed) return;
-      mcp = new McpServer({ name: 'tandoor-mcp-addon', version: '0.4.0' }, {
+      mcp = new McpServer({ name: 'tandoor-mcp-addon', version: '0.4.1' }, {
         instructions: `Tandoor recipe access (${options.access_mode}). Check for duplicates before creating recipes. Text and photos can be transcribed into create_recipe; URLs use import_recipe_from_url.`,
       });
       registerRecipeTools(mcp, requestClient);
@@ -152,7 +154,7 @@ export async function createAddonServer(rawOptions, { tokenPath = '/data/tandoor
       await transport.handleRequest(req, res, body);
     } catch {
       // No request bodies, API responses, URLs or credentials in error logs.
-      console.error('MCP request failed.');
+      logError('MCP request failed.');
       if (!res.headersSent) rpcError(res, 500, 'Internal server error');
       else res.destroy();
     }
@@ -179,10 +181,10 @@ if (process.argv[1] === new URL(import.meta.url).pathname) {
   try {
     const options = JSON.parse(await readFile('/data/options.json', 'utf8'));
     const addon = await createAddonServer(options);
-    addon.setup.on('error', () => { console.error('Cannot listen on setup port.'); process.exit(1); });
+    addon.setup.on('error', () => { logError('Cannot listen on setup port.'); process.exit(1); });
     addon.setup.listen(8099, '0.0.0.0');
-    addon.http.on('error', () => { console.error('Cannot listen on MCP port.'); process.exit(1); });
-    addon.http.listen(3737, '0.0.0.0', () => console.log(`Tandoor MCP listening on port 3737 (${options.access_mode}).`));
+    addon.http.on('error', () => { logError('Cannot listen on MCP port.'); process.exit(1); });
+    addon.http.listen(3737, '0.0.0.0', () => logInfo(`Tandoor MCP listening on port 3737 (${options.access_mode}).`));
     let stopping = false;
     for (const signal of ['SIGTERM', 'SIGINT']) process.on(signal, async () => {
       if (stopping) return;
@@ -192,7 +194,7 @@ if (process.argv[1] === new URL(import.meta.url).pathname) {
     });
   } catch (error) {
     // Validation errors contain only fixed text; parse/file errors might echo secrets.
-    console.error(error instanceof SyntaxError || error.code ? 'Cannot read valid /data/options.json.' : error.message);
+    logError(error instanceof SyntaxError || error.code ? 'Cannot read valid /data/options.json.' : error.message);
     process.exit(1);
   }
 }

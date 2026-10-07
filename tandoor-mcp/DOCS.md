@@ -70,6 +70,12 @@ may return an existing valid read/write token or create one. This does not
 guarantee a dedicated MCP token or narrower permissions. The endpoint limits
 login attempts to 10 per day; the add-on never automatically retries login.
 Once saved, the token is used immediately and after restarts without a password.
+The form displays login progress and a success or error message directly below
+the button. On success, the connection status confirms a saved Tandoor token.
+Login outcomes are logged without usernames, passwords or token values.
+Add-on log messages include ISO 8601 UTC timestamps (`Z`) and severity.
+After reloading the web UI, a saved-token status confirms persistence; it does
+not independently prove that Tandoor still accepts that token.
 Before login, the add-on stays healthy but MCP requests return 503.
 
 The saved token is bound to the resolved Tandoor origin. After changing that

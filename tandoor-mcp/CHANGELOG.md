@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.4.1] - 2026-10-07
+
+- Show login progress and success/error feedback directly below the sign-in form.
+- Log login outcomes without credentials and respect hidden token fields.
+- Add ISO 8601 UTC timestamps and severity to add-on log messages.
+
 ## [0.4.0] - 2026-10-07
 
 - Generate a persistent MCP access token automatically on first start.

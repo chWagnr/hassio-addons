@@ -1,17 +1,19 @@
+import { logError } from './log.mjs';
 import { createServer } from 'node:http';
 import { randomBytes } from 'node:crypto';
 
 const page = `<!doctype html><html lang="en"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Tandoor MCP setup</title>
-<style>body{font:16px system-ui;max-width:36rem;margin:3rem auto;padding:1rem;background:#fafafa;color:#202020}label,input,button{display:block}input,button{font:inherit;padding:.6rem;margin:.4rem 0 1rem;box-sizing:border-box;width:100%}button{cursor:pointer}#status{white-space:pre-wrap}</style>
+<style>body{font:16px system-ui;max-width:36rem;margin:3rem auto;padding:1rem;background:#fafafa;color:#202020}label,input,button{display:block}input,button{font:inherit;padding:.6rem;margin:.4rem 0 1rem;box-sizing:border-box;width:100%}button{cursor:pointer}[hidden]{display:none!important}#status,#login-feedback{white-space:pre-wrap;padding:.8rem;border-radius:.4rem;background:#e8eef5}#login-feedback[data-state="success"]{background:#d6f5df}#login-feedback[data-state="error"]{background:#ffe1e1}</style>
 <h1>Tandoor MCP</h1><p id="status" role="status">Loading connection status…</p>
 <p>Sign in once to Tandoor. Only the API token is saved; your password is not retained. Tandoor may reuse an existing token.</p>
-<form><label>Username<input name="username" autocomplete="username" required maxlength="1024"></label><label>Password<input name="password" type="password" autocomplete="current-password" required maxlength="4096"></label><button>Sign in</button></form>
+<form><label>Username<input name="username" autocomplete="username" required maxlength="1024"></label><label>Password<input name="password" type="password" autocomplete="current-password" required maxlength="4096"></label><button disabled>Sign in</button></form><p id="login-feedback" role="status" aria-live="polite" tabindex="-1" hidden></p>
 <h2>MCP client access</h2><p>Copy this separate access token into your MCP client settings.</p><button id="reveal" type="button">Show MCP token</button><input id="mcp-token" type="password" readonly aria-label="MCP access token" autocomplete="off" hidden>
 <script src="setup.js"></script></html>`;
-const script = `const form=document.querySelector('form'),status=document.querySelector('#status');let csrf;
-fetch('status').then(r=>r.json()).then(data=>{csrf=data.csrf;status.textContent=data.message;form.hidden=data.manual;}).catch(()=>{status.textContent='Cannot load connection status.';});
+const script = `const form=document.querySelector('form'),status=document.querySelector('#status'),feedback=document.querySelector('#login-feedback'),loginButton=form.querySelector('button');let csrf;
+function showFeedback(message,state){feedback.textContent=message;feedback.dataset.state=state;feedback.hidden=false;feedback.scrollIntoView({block:'nearest'});}
+fetch('status').then(r=>r.json()).then(data=>{csrf=data.csrf;status.textContent=data.message;form.hidden=data.manual;loginButton.disabled=false;}).catch(()=>{status.textContent='Cannot load connection status.';});
 document.querySelector('#reveal').addEventListener('click',async()=>{const input=document.querySelector('#mcp-token'),button=document.querySelector('#reveal');if(!input.hidden){input.value='';input.hidden=true;button.textContent='Show MCP token';return;}try{const response=await fetch('mcp-token',{method:'POST',headers:{'X-Setup-CSRF':csrf}});if(!response.ok)throw new Error();const data=await response.json();input.value=data.token;input.type='text';input.hidden=false;input.select();button.textContent='Hide MCP token';}catch{status.textContent='Cannot retrieve MCP token. Reload the setup page.';}});
-form.addEventListener('submit',async event=>{event.preventDefault();const button=form.querySelector('button');button.disabled=true;const username=form.username.value,password=form.password.value;form.password.value='';try{const response=await fetch('login',{method:'POST',headers:{'Content-Type':'application/json','X-Setup-CSRF':csrf},body:JSON.stringify({username,password})});const data=await response.json();status.textContent=data.message;if(response.ok)form.reset();}catch{status.textContent='Connection failed. Check the connection status before retrying.';}finally{button.disabled=false;}});`;
+form.addEventListener('submit',async event=>{event.preventDefault();if(!csrf){showFeedback('Setup is not ready. Reload the page.','error');return;}loginButton.disabled=true;loginButton.textContent='Signing in…';showFeedback('Signing in to Tandoor…','pending');try{const username=form.elements.namedItem('username').value,password=form.elements.namedItem('password').value;form.elements.namedItem('password').value='';const response=await fetch('login',{method:'POST',headers:{'Content-Type':'application/json','X-Setup-CSRF':csrf},body:JSON.stringify({username,password})});const data=await response.json();showFeedback(data.message,response.ok?'success':'error');if(response.ok){status.textContent='Connected using a saved Tandoor token.';form.reset();loginButton.textContent='Sign in again';}else{loginButton.textContent='Sign in';}}catch{showFeedback('Connection failed. Reload the page to check whether a token was saved before retrying.','error');loginButton.textContent='Sign in';}finally{loginButton.disabled=false;}});`;
 
 export function createSetupServer({ status, authenticate, getMcpToken, isIngress = address => ['172.30.32.2', '::ffff:172.30.32.2'].includes(address) }) {
   const csrf = randomBytes(32).toString('hex');
@@ -55,7 +57,7 @@ export function createSetupServer({ status, authenticate, getMcpToken, isIngress
       catch { return send(400, 'Invalid login request.'); }
       if (!data || typeof data !== 'object') return send(400, 'Invalid login request.');
       try { await authenticate(data.username, data.password); }
-      catch (error) { return send(400, error.message); }
+      catch (error) { logError('Tandoor login failed; no replacement token saved. Check the web UI for details.'); return send(400, error.message); }
       finally { delete data.password; }
       send(200, 'Connected. The token is saved; the password is not retained.');
     } catch {

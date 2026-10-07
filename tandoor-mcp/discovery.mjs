@@ -1,3 +1,4 @@
+import { logInfo } from './log.mjs';
 import { setTimeout as delay } from 'node:timers/promises';
 
 const SLUG = /^[a-zA-Z0-9][a-zA-Z0-9_-]*$/;
@@ -63,6 +64,6 @@ export async function resolveTandoorUrl(options, {
     await wait(2000);
   }
   const url = internalTandoorUrl(info);
-  console.log(`Discovered Tandoor add-on ${slug}; using its internal service.`);
+  logInfo(`Discovered Tandoor add-on ${slug}; using its internal service.`);
   return url;
 }
