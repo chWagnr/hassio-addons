@@ -6,6 +6,11 @@ Ein CI-Check prüft, dass die aktuelle Version genau einen ausgefüllten Eintrag
 
 ## [Unreleased]
 
+## [26.7.0] - 2026-10-07
+
+### Änderungen
+- Papra-Docker-Image und Add-on-Version von 26.6.2 auf 26.7.0 aktualisiert ([7cc4fcc](https://github.com/chWagnr/hassio-addons/commit/7cc4fcc305dba636a39aa4389bc7743603ac311e)).
+
 ## [26.6.2] - 2026-09-07
 
 ### Änderungen

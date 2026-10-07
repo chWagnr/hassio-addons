@@ -1,42 +1,33 @@
-name: Update add-on changelogs
+name: Check add-on changelogs
 
 on:
-  push:
-    branches:
-      - main
+  pull_request:
     paths:
-      - "certflow/config.yaml"
-      - "papra/config.yaml"
-      - "tandoor-mcp/config.yaml"
-      - ".github/workflows/update-addon-changelogs.yaml"
+      - "*/config.yaml"
+      - "*/CHANGELOG.md"
+      - ".github/workflows/check-addon-changelogs.yaml"
       - ".github/scripts/generate-addon-changelogs.sh"
   workflow_dispatch:
 
 permissions:
-  contents: write
-  pull-requests: write
-
-concurrency:
-  group: addon-changelog-${{ github.ref }}
-  cancel-in-progress: false
+  contents: read
 
 jobs:
   changelog:
-    if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     steps:
       - name: Check out repository
         uses: actions/checkout@v7
         with:
           fetch-depth: 0
-          ref: main
 
+      # Preview the same automatic notes without writing to GitHub.
       - name: Create missing changelog entries
         run: bash .github/scripts/generate-addon-changelogs.sh
 
       - name: Validate release notes
         env:
-          BASE_SHA: ""
+          BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.before }}
           EVENT_NAME: ${{ github.event_name }}
         run: |
           python3 - <<'PY'
@@ -90,34 +81,3 @@ jobs:
               print(f'{addon}: release notes for {version} valid.')
           raise SystemExit(1 if failed else 0)
           PY
-
-      - name: Create changelog pull request
-        id: changelog-pr
-        uses: peter-evans/create-pull-request@v8
-        with:
-          base: main
-          add-paths: |
-            certflow/CHANGELOG.md
-            papra/CHANGELOG.md
-            tandoor-mcp/CHANGELOG.md
-          branch: automation/addon-changelog
-          delete-branch: true
-          sign-commits: true
-          commit-message: "docs: update add-on changelogs"
-          title: "docs: update add-on changelogs"
-          body: "Automatisch aus Änderungen an den Add-on-Versionen generiert."
-
-      - name: Merge changelog pull request
-        if: steps.changelog-pr.outputs.pull-request-number != ''
-        env:
-          GH_TOKEN: ${{ github.token }}
-          PR_NUMBER: ${{ steps.changelog-pr.outputs.pull-request-number }}
-        run: |
-          set -euo pipefail
-
-          merge_state="$(gh pr view "${PR_NUMBER}" --json mergeStateStatus --jq '.mergeStateStatus')"
-          if [ "${merge_state}" = "CLEAN" ]; then
-            gh pr merge "${PR_NUMBER}" --squash --delete-branch
-          else
-            gh pr merge "${PR_NUMBER}" --auto --squash --delete-branch
-          fi
