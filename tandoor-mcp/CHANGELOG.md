@@ -4,6 +4,11 @@
 
 ## [0.4.0] - 2026-10-07
 
+### Änderungen
+- Versionsupdate und Wartung.
+
+## [0.4.0] - 2026-10-07
+
 - Generate a persistent MCP access token automatically on first start.
 - Reveal the token on demand through the protected Ingress web UI.
 - Keep manually configured MCP tokens as optional overrides.
