@@ -8,7 +8,8 @@ manual URLs remain available for external Tandoor installations. Sign in once
 through the Home Assistant web UI to save only an API token, or configure an
 existing token directly.
 
-See [DOCS.md](DOCS.md) for configuration and client setup. Uses
+See the [configuration and client setup guide](./documentation).
+In Home Assistant, the same guide is available in the add-on’s **Documentation** tab. Uses
 [@cliftonz/tandoor-recipes-mcp](https://github.com/Cliftonz/tandoor-recipe-mcp)
 2.0.1 with a stateless HTTP adapter and MCP SDK 1.31.0. The SDK override fixes
 the OAuth client advisory affecting the upstream pinned SDK; this add-on uses
