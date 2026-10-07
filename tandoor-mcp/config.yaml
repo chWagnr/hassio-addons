@@ -1,5 +1,5 @@
 name: Tandoor MCP
-version: "0.2.0"
+version: "0.3.0"
 slug: tandoor_mcp
 description: Authenticated MCP access to Tandoor recipes, with optional recipe import and editing.
 url: https://github.com/chWagnr/hassio-addons/tree/main/tandoor-mcp
@@ -10,6 +10,9 @@ arch:
 startup: application
 boot: auto
 init: false
+ingress: true
+ingress_port: 8099
+panel_icon: mdi:silverware-fork-knife
 hassio_api: true
 hassio_role: default
 timeout: 20

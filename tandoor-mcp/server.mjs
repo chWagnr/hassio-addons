@@ -1,6 +1,8 @@
 import { readFile } from 'node:fs/promises';
 import { createServer } from 'node:http';
 import { timingSafeEqual } from 'node:crypto';
+import { loadToken, saveToken, login, validToken } from './auth.mjs';
+import { createSetupServer } from './setup.mjs';
 import { resolveTandoorUrl } from './discovery.mjs';
 
 const MAX_BODY = 1024 * 1024;
@@ -12,7 +14,7 @@ const READ_TOOLS = [
 ];
 
 export function validateOptions(options) {
-  options = { tandoor_addon: '', ...options };
+  options = { tandoor_addon: '', tandoor_token: '', ...options };
   let url;
   const auto = options.tandoor_url === '' || options.tandoor_url === 'auto';
   if (!auto) {
@@ -24,8 +26,7 @@ export function validateOptions(options) {
   }
   if (typeof options.tandoor_addon !== 'string' || (options.tandoor_addon &&
       !/^[a-zA-Z0-9][a-zA-Z0-9_-]*$/.test(options.tandoor_addon))) throw new Error('Invalid tandoor_addon slug.');
-  if (typeof options.tandoor_token !== 'string' || !options.tandoor_token.trim() ||
-      /\s/.test(options.tandoor_token)) throw new Error('Set a nonempty tandoor_token without whitespace.');
+  if (typeof options.tandoor_token !== 'string' || (options.tandoor_token && !validToken(options.tandoor_token))) throw new Error('Invalid tandoor_token.');
   if (typeof options.mcp_token !== 'string' || !/^[A-Za-z0-9_-]{32,256}$/.test(options.mcp_token)) {
     throw new Error('mcp_token must contain 32–256 letters, digits, underscores or hyphens.');
   }
@@ -46,7 +47,7 @@ function rpcError(res, status, message, headers = {}) {
 
 // Each POST gets its own stateless server/transport. Clients and concurrent
 // requests cannot share protocol state or change another client's tool list.
-export async function createAddonServer(rawOptions) {
+export async function createAddonServer(rawOptions, { tokenPath = '/data/tandoor-token.json', isIngress } = {}) {
   const options = validateOptions(rawOptions);
   options.tandoor_url = await resolveTandoorUrl(options);
   const tools = [...READ_TOOLS];
@@ -70,12 +71,29 @@ export async function createAddonServer(rawOptions) {
   const { registerVersionTools } = await import('@cliftonz/tandoor-recipes-mcp/build/tools/version.js');
   const { registerResources } = await import('@cliftonz/tandoor-recipes-mcp/build/resources/index.js');
   const { checkTandoorVersion } = await import('@cliftonz/tandoor-recipes-mcp/build/lib/version-check.js');
-  const client = new TandoorClient({ url: options.tandoor_url, token: options.tandoor_token });
-  const versionCheck = await checkTandoorVersion(client);
-  if (versionCheck.status !== 'ok') console.error('Tandoor compatibility probe inconclusive or unsupported; check the URL, API token and Tandoor ALLOWED_HOSTS (include the internal hostname when using automatic discovery).');
+  let token = options.tandoor_token || await loadToken(tokenPath, options.tandoor_url);
+  let client = token ? new TandoorClient({ url: options.tandoor_url, token }) : null;
+  let versionCheck = client ? await checkTandoorVersion(client) : { status: 'unknown' };
+  if (client && versionCheck.status !== 'ok') console.error('Tandoor compatibility probe inconclusive or unsupported; check the URL, API token and Tandoor ALLOWED_HOSTS (include the internal hostname when using automatic discovery).');
   const expectedAuth = Buffer.from(`Bearer ${options.mcp_token}`);
   let active = 0;
   let draining = false;
+
+  const setup = createSetupServer({
+    isIngress,
+    status: () => ({ manual: Boolean(options.tandoor_token), message: options.tandoor_token ? 'Using the API token from add-on options.' : token ? 'Connected using a saved token. Sign in again to replace it.' : 'Sign in to connect Tandoor.' }),
+    authenticate: async (username, password) => {
+      if (draining) throw new Error('Shutting down.');
+      if (options.tandoor_token) throw new Error('Clear tandoor_token in add-on options and restart before signing in.');
+      const nextToken = await login(options.tandoor_url, username, password);
+      const nextClient = new TandoorClient({ url: options.tandoor_url, token: nextToken });
+      const nextVersion = await checkTandoorVersion(nextClient);
+      await saveToken(tokenPath, options.tandoor_url, nextToken);
+      token = nextToken;
+      client = nextClient;
+      versionCheck = nextVersion;
+    },
+  });
 
   const http = createServer(async (req, res) => {
     res.setHeader('Cache-Control', 'no-store');
@@ -93,8 +111,11 @@ export async function createAddonServer(rawOptions) {
     if (req.url !== '/mcp') return rpcError(res, 404, 'Not found');
     if (req.method !== 'POST') return rpcError(res, 405, 'Method not allowed', { Allow: 'POST' });
     if (req.headers['content-type']?.split(';')[0].trim().toLowerCase() !== 'application/json') return rpcError(res, 415, 'Use application/json');
+    if (!client) return rpcError(res, 503, 'Sign in through the add-on web UI or configure tandoor_token.');
     if (active >= 32) return rpcError(res, 503, 'Too many requests', { 'Retry-After': '1' });
     if (Number(req.headers['content-length']) > MAX_BODY) return rpcError(res, 413, 'Payload too large');
+    const requestClient = client;
+    const requestVersion = versionCheck;
     active++;
     let mcp;
     const cleanup = () => { active--; void mcp?.close().catch(() => {}); };
@@ -114,16 +135,16 @@ export async function createAddonServer(rawOptions) {
       try { body = JSON.parse(Buffer.concat(chunks).toString('utf8')); }
       catch { return rpcError(res, 400, 'Invalid JSON'); }
       if (res.destroyed) return;
-      mcp = new McpServer({ name: 'tandoor-mcp-addon', version: '0.2.0' }, {
+      mcp = new McpServer({ name: 'tandoor-mcp-addon', version: '0.3.0' }, {
         instructions: `Tandoor recipe access (${options.access_mode}). Check for duplicates before creating recipes. Text and photos can be transcribed into create_recipe; URLs use import_recipe_from_url.`,
       });
-      registerRecipeTools(mcp, client);
-      registerMealPlanTools(mcp, client);
-      registerShoppingTools(mcp, client);
-      registerFoodUnitTools(mcp, client);
-      registerMealTypeTools(mcp, client);
-      registerVersionTools(mcp, client, { name: '@cliftonz/tandoor-recipes-mcp', version: '2.0.1' }, versionCheck);
-      registerResources(mcp, client);
+      registerRecipeTools(mcp, requestClient);
+      registerMealPlanTools(mcp, requestClient);
+      registerShoppingTools(mcp, requestClient);
+      registerFoodUnitTools(mcp, requestClient);
+      registerMealTypeTools(mcp, requestClient);
+      registerVersionTools(mcp, requestClient, { name: '@cliftonz/tandoor-recipes-mcp', version: '2.0.1' }, requestVersion);
+      registerResources(mcp, requestClient);
       const transport = new StreamableHTTPServerTransport({ sessionIdGenerator: undefined, enableJsonResponse: true });
       await mcp.connect(transport);
       await transport.handleRequest(req, res, body);
@@ -139,14 +160,15 @@ export async function createAddonServer(rawOptions) {
   http.requestTimeout = 30_000;
   http.setTimeout(120_000, socket => socket.destroy());
   return {
-    http,
+    http, setup,
     stop() {
       draining = true;
-      return new Promise(resolve => {
+      const closeSetup = new Promise(resolve => { setup.closeAllConnections(); setup.close(resolve); });
+      return Promise.all([closeSetup, new Promise(resolve => {
         const deadline = setTimeout(() => http.closeAllConnections(), 10_000);
         deadline.unref();
         http.close(() => { clearTimeout(deadline); resolve(); });
-      });
+      })]);
     },
   };
 }
@@ -155,6 +177,8 @@ if (process.argv[1] === new URL(import.meta.url).pathname) {
   try {
     const options = JSON.parse(await readFile('/data/options.json', 'utf8'));
     const addon = await createAddonServer(options);
+    addon.setup.on('error', () => { console.error('Cannot listen on setup port.'); process.exit(1); });
+    addon.setup.listen(8099, '0.0.0.0');
     addon.http.on('error', () => { console.error('Cannot listen on MCP port.'); process.exit(1); });
     addon.http.listen(3737, '0.0.0.0', () => console.log(`Tandoor MCP listening on port 3737 (${options.access_mode}).`));
     let stopping = false;
