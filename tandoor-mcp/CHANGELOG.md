@@ -2,6 +2,11 @@
 
 ## [Unreleased]
 
+## [0.5.0] - 2026-10-07
+
+- Populate the MCP token and discovered Tandoor selection in add-on options on first start.
+- Store MCP tokens only in add-on options; remove the unused pre-release token file.
+
 ## [0.4.1] - 2026-10-07
 
 - Show login progress and success/error feedback directly below the sign-in form.

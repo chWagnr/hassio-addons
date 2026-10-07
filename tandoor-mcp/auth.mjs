@@ -58,16 +58,10 @@ export async function saveToken(path, url, token) {
   await saveSecret(path, { url, token });
 }
 
-export async function resolveMcpToken(configured, path) {
+export async function resolveMcpToken(configured, { persist } = {}) {
   if (configured) return configured;
-  try {
-    const saved = JSON.parse(await readFile(path, 'utf8'));
-    if (typeof saved.token !== 'string' || !/^[A-Za-z0-9_-]{32,256}$/.test(saved.token)) throw new Error();
-    return saved.token;
-  } catch (error) {
-    if (error.code !== 'ENOENT') throw new Error('Cannot read stored MCP token.');
-  }
+  if (!persist) throw new Error('Generating an MCP token requires persistent add-on options.');
   const token = randomBytes(32).toString('hex');
-  await saveSecret(path, { token });
+  await persist({ mcp_token: token });
   return token;
 }

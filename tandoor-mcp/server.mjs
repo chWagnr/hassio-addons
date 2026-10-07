@@ -1,5 +1,6 @@
 import { logInfo, logError } from './log.mjs';
-import { readFile } from 'node:fs/promises';
+import { persistOptions } from './options.mjs';
+import { readFile, unlink } from 'node:fs/promises';
 import { createServer } from 'node:http';
 import { timingSafeEqual } from 'node:crypto';
 import { loadToken, saveToken, login, validToken, resolveMcpToken } from './auth.mjs';
@@ -48,9 +49,15 @@ function rpcError(res, status, message, headers = {}) {
 
 // Each POST gets its own stateless server/transport. Clients and concurrent
 // requests cannot share protocol state or change another client's tool list.
-export async function createAddonServer(rawOptions, { tokenPath = '/data/tandoor-token.json', mcpTokenPath = '/data/mcp-token.json', isIngress } = {}) {
+export async function createAddonServer(rawOptions, { tokenPath = '/data/tandoor-token.json', isIngress, persist, discovery } = {}) {
   const options = validateOptions(rawOptions);
-  options.tandoor_url = await resolveTandoorUrl(options);
+  options.tandoor_url = await resolveTandoorUrl(options, { ...discovery, onSelected: async slug => {
+    if (persist) {
+      await persist({ tandoor_addon: slug });
+      options.tandoor_addon = slug;
+      logInfo('Discovered Tandoor selection saved in add-on options.');
+    }
+  } });
   const tools = [...READ_TOOLS];
   if (options.access_mode !== 'read_only') tools.push('create_recipe', 'import_recipe_from_url');
   if (options.access_mode === 'edit') tools.push('update_recipe');
@@ -76,7 +83,7 @@ export async function createAddonServer(rawOptions, { tokenPath = '/data/tandoor
   let client = token ? new TandoorClient({ url: options.tandoor_url, token }) : null;
   let versionCheck = client ? await checkTandoorVersion(client) : { status: 'unknown' };
   if (client && versionCheck.status !== 'ok') logError('Tandoor compatibility probe inconclusive or unsupported; check the URL, API token and Tandoor ALLOWED_HOSTS (include the internal hostname when using automatic discovery).');
-  const mcpToken = await resolveMcpToken(options.mcp_token, mcpTokenPath);
+  const mcpToken = await resolveMcpToken(options.mcp_token, { persist });
   const expectedAuth = Buffer.from(`Bearer ${mcpToken}`);
   let active = 0;
   let draining = false;
@@ -139,7 +146,7 @@ export async function createAddonServer(rawOptions, { tokenPath = '/data/tandoor
       try { body = JSON.parse(Buffer.concat(chunks).toString('utf8')); }
       catch { return rpcError(res, 400, 'Invalid JSON'); }
       if (res.destroyed) return;
-      mcp = new McpServer({ name: 'tandoor-mcp-addon', version: '0.4.1' }, {
+      mcp = new McpServer({ name: 'tandoor-mcp-addon', version: '0.5.0' }, {
         instructions: `Tandoor recipe access (${options.access_mode}). Check for duplicates before creating recipes. Text and photos can be transcribed into create_recipe; URLs use import_recipe_from_url.`,
       });
       registerRecipeTools(mcp, requestClient);
@@ -180,7 +187,11 @@ export async function createAddonServer(rawOptions, { tokenPath = '/data/tandoor
 if (process.argv[1] === new URL(import.meta.url).pathname) {
   try {
     const options = JSON.parse(await readFile('/data/options.json', 'utf8'));
-    const addon = await createAddonServer(options);
+    // Remove the unused pre-release token file; options are the only MCP token store.
+    await unlink('/data/mcp-token.json').catch(error => {
+      if (error.code !== 'ENOENT') throw new Error('Cannot remove obsolete MCP token file.');
+    });
+    const addon = await createAddonServer(options, { persist: persistOptions });
     addon.setup.on('error', () => { logError('Cannot listen on setup port.'); process.exit(1); });
     addon.setup.listen(8099, '0.0.0.0');
     addon.http.on('error', () => { logError('Cannot listen on MCP port.'); process.exit(1); });

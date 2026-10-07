@@ -9,7 +9,8 @@
 4. Save the options, start the add-on and enable its watchdog if desired.
 5. Open the add-on web UI and sign in with your Tandoor username and password
    once (not needed when `tandoor_token` is set).
-6. Click **Show MCP token** in the web UI and copy the token into your client.
+6. Reload the Configuration tab: `mcp_token` is now populated. Reveal/copy it
+   there, or use **Show MCP token** in the web UI.
 7. Connect your MCP client to `http://<HA-host>:3737/mcp` on a trusted network,
    or use your HTTPS reverse proxy endpoint. The host port can be changed in
    the add-on's Network settings.
@@ -17,7 +18,7 @@
 | Option | Purpose |
 | --- | --- |
 | `tandoor_url` | `auto` (default) discovers an installed Tandoor add-on. Alternatively a reachable HTTP(S) origin, for example `http://tandoor-host:8080`. No `/api` suffix, subpath or embedded credentials. Tandoor 2.x required. An empty value also means automatic discovery. |
-| `tandoor_addon` | Optional full installed add-on slug to select a specific Tandoor installation. Used only with automatic discovery. |
+| `tandoor_addon` | Optional full installed add-on slug to select a specific Tandoor installation. Used only with automatic discovery. Filled after successful discovery. |
 | `tandoor_token` | Optional existing Tandoor API token. When empty, use one-time login in the web UI. A configured token takes precedence over a saved login token. |
 | `mcp_token` | Optional bearer token, 32–256 letters, digits, `_` or `-`. Empty generates a random 256-bit token on first start; authentication is always required. |
 | `access_mode` | `read_only`, `import` (default), or `edit`. Restart after changes. |
@@ -26,7 +27,9 @@
 ## Automatic Tandoor connection
 
 At startup, the add-on reads Supervisor's store inventory, selects the installed
-Tandoor app, then reads its internal hostname and container ports. It connects
+Tandoor app, then reads its internal hostname and container ports. The selected
+slug is saved in `tandoor_addon`; future starts skip the store inventory.
+Clear that field to select again after replacing Tandoor. It connects
 directly over the add-on network, independent of published host ports, your
 external reverse proxy or ingress. Port 80 is preferred, then 8080, then HTTPS
 443; an otherwise unambiguous single TCP port is also supported. Unknown port
@@ -48,8 +51,10 @@ that already works for your installation.
 
 Only the address is discovered: authenticate through the web UI or provide a
 Tandoor API token. The MCP token is separate. The add-on uses the Supervisor **default** role
-and only GET `/store/info` and `/addons/<slug>/info`, with other add-on options
-redacted. It needs no manager/admin permissions and reads no Tandoor passwords,
+for GET `/store/info` and `/addons/<slug>/info`, with other add-on options
+redacted. It also reads `/addons/self/info` and writes `/addons/self/options`
+to populate its own configuration, then verifies persistence.
+It needs no manager/admin permissions and reads no Tandoor passwords,
 database files or other add-on secrets. See the
 [Supervisor access checks](https://github.com/home-assistant/supervisor/blob/main/supervisor/api/middleware/security.py)
 and [app info API](https://developers.home-assistant.io/docs/api/supervisor/endpoints/).
@@ -139,11 +144,13 @@ verification; private CAs and disabling TLS verification are not supported.
 Supervisor API access with the default role is enabled for discovery. No Home
 Assistant Core API, Docker access, host networking or directory mounts are
 required. Manually configured MCP and Tandoor tokens live in add-on options.
-An automatically generated MCP token lives in `/data/mcp-token.json`, with
-owner-only permissions (`0600`). It survives restarts and updates. Reveal it
-using **Show MCP token** in the Ingress web UI; it is never logged or returned
-through the public MCP endpoint. A configured `mcp_token` takes precedence;
-clearing it restores the saved generated token.
+Generated MCP tokens are saved in the `mcp_token` option and survive restarts
+and updates. No separate MCP token file is used. The unused pre-release
+`/data/mcp-token.json` file is deleted at startup without importing its token.
+If saving options fails, startup stops. Clearing `mcp_token` generates a new
+key at the next start; update clients accordingly.
+Reveal the key in Configuration or with **Show MCP token** in the Ingress UI.
+It is never logged or returned via the public MCP endpoint.
 A login token lives in `/data/tandoor-token.json` with owner-only permissions
 (`0600`) and in process memory. These are not encrypted at rest; Home Assistant
 backups containing options or add-on data must be treated as sensitive. Recipe data stays

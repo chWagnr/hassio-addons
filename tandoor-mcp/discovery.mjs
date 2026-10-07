@@ -33,6 +33,7 @@ export async function resolveTandoorUrl(options, {
   fetchImpl = fetch,
   wait = delay,
   now = Date.now,
+  onSelected = async () => {},
 } = {}) {
   if (options.tandoor_url && options.tandoor_url !== 'auto') return options.tandoor_url;
   if (!token) throw new Error('Automatic discovery requires Supervisor access. Set tandoor_url manually outside Home Assistant.');
@@ -64,6 +65,7 @@ export async function resolveTandoorUrl(options, {
     await wait(2000);
   }
   const url = internalTandoorUrl(info);
+  if (!options.tandoor_addon) await onSelected(slug);
   logInfo(`Discovered Tandoor add-on ${slug}; using its internal service.`);
   return url;
 }
