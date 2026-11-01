@@ -1,4 +1,4 @@
-FROM node:24.22.0-alpine
+FROM node:24.22.2-alpine
 
 ARG BUILD_VERSION=0.5.0
 ARG BUILD_ARCH=amd64

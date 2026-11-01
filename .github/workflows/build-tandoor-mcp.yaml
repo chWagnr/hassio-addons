@@ -24,7 +24,7 @@ jobs:
       - uses: actions/checkout@v7
       - uses: actions/setup-node@v6
         with:
-          node-version: "24.22.0"
+          node-version: "24.22.2"
           cache: npm
           cache-dependency-path: tandoor-mcp/package-lock.json
       - run: npm ci --ignore-scripts
